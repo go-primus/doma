@@ -1,0 +1,117 @@
+package svc
+
+import (
+	"context"
+	"reflect"
+
+	"github.com/sirupsen/logrus"
+)
+
+var sm ServiceManager
+
+func init() {
+	sm = newServiceRegistry()
+}
+
+func GetInstance() ServiceManager {
+	return sm
+}
+
+func GetSystemService[T Service](name string) T {
+	svc := GetInstance().GetSystemService(name)
+	return svc.(T)
+}
+
+func GetSystemServiceState(name string) (ServiceState, error) {
+	return GetInstance().GetServiceState(name)
+}
+
+type ServiceManager interface {
+	// GetService()
+	// CheckService()
+	// AddService()
+	// ListServices()
+	// GetServiceDebugInfo()
+
+	RegisterService(srv Service)
+	Init(ctx context.Context) error
+	Config(ctx context.Context) error
+	Start(ctx context.Context) error
+
+	GetSystemService(name string) Service
+	GetServiceState(name string) (ServiceState, error)
+	DumpServices()
+}
+
+type ServiceRegistry struct {
+	services map[string]Service
+}
+
+func newServiceRegistry() ServiceManager {
+	return &ServiceRegistry{
+		services: make(map[string]Service),
+	}
+}
+
+func (s *ServiceRegistry) RegisterService(srv Service) {
+	s.services[srv.Name()] = srv
+}
+
+func (s *ServiceRegistry) Init(ctx context.Context) error {
+	logrus.Info("init services...")
+	for _, svc := range s.services {
+		err := svc.Init(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *ServiceRegistry) Config(ctx context.Context) error {
+	logrus.Info("config services...")
+	for _, svc := range s.services {
+		err := svc.Config(ctx, func() error { return nil })
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *ServiceRegistry) Start(ctx context.Context) error {
+	logrus.Info("start services...")
+	for _, svc := range s.services {
+		err := svc.Start(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+///
+
+func (s *ServiceRegistry) GetSystemService(name string) Service {
+	return s.services[name]
+}
+
+func (s *ServiceRegistry) GetServiceState(name string) (ServiceState, error) {
+	return s.GetSystemService(name).Status()
+}
+
+func (s *ServiceRegistry) DumpService(name string) {
+	srv := s.GetSystemService(name)
+	status, _ := srv.Status()
+	logrus.Info(srv.ID(), " : ", srv.Name(), "\t", status, "\t--> ", reflect.TypeOf(srv))
+	// fmt.Println("----", srv.ID(), ":", srv.Name(), "----", status, "---", reflect.TypeOf(srv))
+
+}
+
+func (s *ServiceRegistry) DumpServices() {
+	logrus.Info("---dump services------------------------")
+	for _, svc := range s.services {
+		s.DumpService(svc.Name())
+	}
+	logrus.Info("---------------------------------------")
+}
