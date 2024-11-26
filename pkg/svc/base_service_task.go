@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"runtime/debug"
 	"strings"
 
+	"github.com/go-primus/doma/core/common/task"
+	"github.com/go-primus/doma/pkg/eventbus"
 	"github.com/nats-io/nats.go"
-	"github.com/primus/primus/core/common/task"
-	"github.com/primus/primus/pkg/eventbus"
-	"github.com/primus/primus/pkg/logger"
 )
 
 // StartTask implements Service.
@@ -43,12 +43,12 @@ func (s *BaseService) handleTask(fn TaskHandler) func(msg *nats.Msg) {
 		taskx := task.Task{}
 		err := json.Unmarshal(msg.Data, &taskx)
 		if err != nil {
-			logger.L().Error("----service:", s.name, ", handle task, unmarshal err:", err)
+			slog.Error("handle task, unmarshal err:", "service", s.name, "err", err)
 			return
 		}
 
 		if _, exists := s.tasks.LoadOrStore(taskx.TaskId, taskx); exists {
-			logger.L().Warnf("service [%s] task %s is running alreay , task type %s", s.name, taskx.TaskId, taskx.TaskType)
+			slog.Warn("service task is running alreay  ", "service", s.name, "task", taskx.TaskId, "task-type", taskx.TaskType)
 			return
 		}
 
@@ -56,13 +56,13 @@ func (s *BaseService) handleTask(fn TaskHandler) func(msg *nats.Msg) {
 			defer func() {
 				s.tasks.Delete(taskx.TaskId)
 			}()
-			logger.L().Info("----service:", s.name, ", receive task bus msg: ", taskx.TaskType)
+			slog.Info("receive task bus msg: ", "service", s.name, "task-type", taskx.TaskType)
 
 			taskCtx := task.WrapTaskContext(context.Background(), taskx.TaskId, taskx.TaskType, nil)
 
 			res, err := s.performTask(taskCtx, taskx, fn)
 			if err != nil {
-				logger.L().Error("----service:", s.name, ", handle task ", taskx.TaskType, " err:", err)
+				slog.Error("handle task", "service", s.name, "task-type", taskx.TaskType, "err", err)
 				s.bus.Publish(msg.Reply, err.Error())
 				return
 			}
@@ -103,7 +103,7 @@ func (s *BaseService) performTask(ctx context.Context, task task.Task, fn TaskHa
 		if x := recover(); x != nil {
 			errMsg := string(debug.Stack())
 
-			logger.L().Errorf("recovering from panic. See the stack trace below for details:\n%s", errMsg)
+			slog.Error("recovering from panic. See the stack trace below for details:", "err", errMsg)
 			_, file, line, ok := runtime.Caller(1) // skip the first frame (panic itself)
 			if ok && strings.Contains(file, "runtime/") {
 				// The panic came from the runtime, most likely due to incorrect

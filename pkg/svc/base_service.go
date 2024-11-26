@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 
+	"github.com/go-primus/doma/core/common/command"
+	"github.com/go-primus/doma/core/common/event"
+	"github.com/go-primus/doma/pkg/eventbus"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	"github.com/primus/primus/core/common/command"
-	"github.com/primus/primus/core/common/event"
-	"github.com/primus/primus/pkg/eventbus"
 	"github.com/primus/primus/pkg/logger"
 	"github.com/sirupsen/logrus"
 )
@@ -132,10 +133,10 @@ func (s *BaseService) Dump(context.Context) ([]byte, error) {
 // /////////////
 func (s *BaseService) Publish(topic string, data event.Event) error {
 	if s.bus == nil {
-		logger.L().Warn("----service:", s.name, ", publish err: bus is nil")
+		slog.Warn("publish err: bus is nil", "service", s.name)
 		return nil
 	}
-	logger.L().Info("----service:", s.name, ", publish ", topic)
+	slog.Info("publish topic ", "service", s.name, "topic", topic)
 	return s.bus.Publish(topic, data)
 }
 
@@ -158,13 +159,13 @@ func (s *BaseService) handleMsg(fn EventHandler) func(msg *nats.Msg) {
 		event := event.Event{}
 		err := json.Unmarshal(msg.Data, &event)
 		if err != nil {
-			logger.L().Error("invalid event,", err, ", ", string(msg.Data))
+			slog.Error("invalid event,", "err", err, "data", string(msg.Data))
 			return
 		}
 
 		err = fn(context.Background(), msg.Subject, event)
 		if err != nil {
-			logger.L().Error("----service ", s.name, "---- handle message ", msg.Subject, ", err:", err)
+			slog.Error("handle message ", "service", s.name, "subject", msg.Subject, "err", err)
 			return
 		}
 	}
@@ -189,7 +190,7 @@ func (s *BaseService) handleCommand(fn CommandHandler) func(msg *nats.Msg) {
 		cmd := command.Command{}
 		err := json.Unmarshal(msg.Data, &cmd)
 		if err != nil {
-			logger.L().Error("----service:", s.name, ", handle command, unmarshal err:", err)
+			slog.Error("handle command, unmarshal err:", "service", s.name, "err", err)
 			return
 		}
 

@@ -3,10 +3,10 @@ package svc
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
-	"github.com/primus/primus/pkg/kvstore"
-	"github.com/primus/primus/pkg/logger"
+	"github.com/go-primus/doma/pkg/kvstore"
 )
 
 type BaseServiceKvStore struct {
@@ -19,17 +19,17 @@ func (s *BaseServiceKvStore) ProcessWithKey(ctx context.Context, key string, fn 
 
 	value, err := s.Get([]byte(key))
 	if err == nil && value != nil {
-		logger.L().Debugf("service [%s] process with key %s ,alreay handled", s.s.Name(), key)
+		slog.Debug("service process with key ,alreay handled", "service", s.s.Name(), "key", key)
 		return nil
 	}
 
 	err = fn(ctx)
 	if err != nil {
-		logger.L().Errorf("service [%s] process with key %s, err:%v", s.s.Name(), key, err)
+		slog.Error("service process with key ", "service", s.s.Name(), "key", key, "err", err)
 		return err
 	}
 	if err = s.Put([]byte(key), []byte(time.Now().String())); err != nil {
-		logger.L().Errorf("service [%s] process with key %s, put err: %v", s.s.Name(), key, err)
+		slog.Error("service process with key , put err", "service", s.s.Name(), "key", key, "err", err)
 		return err
 	}
 
