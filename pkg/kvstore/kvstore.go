@@ -1,15 +1,33 @@
 package kvstore
 
 import (
+	"context"
 	"fmt"
 
 	"go.etcd.io/bbolt"
 )
 
 type KvStore interface {
-	Put(bucket []byte, key, value []byte) error
-	Delete(bucket []byte, key []byte) error
-	Get(bucket []byte, key []byte) ([]byte, error)
+	Create(ctx context.Context, key string, value []byte) (int64, error)
+	Delete(ctx context.Context, key string) error
+	Update(ctx context.Context, key string, value []byte) error
+	Get(ctx context.Context, key string) (any, error)
+	List(ctx context.Context, prefix, startkey string, limit int64) ([]any, error)
+	Count(ctx context.Context, prefix, startkey string) (int64, error)
+
+	//
+	Watch()
+}
+
+type Watcher interface {
+	Watch(ctx context.Context, key string) WatchResult
+}
+
+type Event struct {
+}
+
+type WatchResult struct {
+	Events <-chan []*Event
 }
 
 type kvStore struct {
