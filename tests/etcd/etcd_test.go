@@ -18,4 +18,7 @@ func TestEtcd(t *testing.T) {
 	cli.Delete(context.TODO(), "key")
 	cli.Get(context.TODO(), "key", clientv3.WithCreatedNotify())
 
+	txn := cli.Txn(context.TODO())
+	txn.If()
+
 }

@@ -19,6 +19,17 @@ type KvStore interface {
 	Watch()
 }
 
+type Tx interface {
+	base.Tx
+	Get(ctx context.Context, key kv.Key) (kv.Value, error)
+	GetBatch(ctx context.Context, keys []kv.Key) ([]kv.Value, error)
+	Del(ctx context.Context, k kv.Key) error
+	Put(ctx context.Context, k kv.Key, v kv.Value) error
+	Scan(ctx context.Context) kv.Iterator
+	PrefixScan(ctx context.Context, prefix kv.Key) kv.Iterator
+}
+
+
 type Watcher interface {
 	Watch(ctx context.Context, key string) WatchResult
 }
