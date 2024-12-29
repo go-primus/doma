@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/primus/primus/pkg/asynctask/internal/errors"
+	"github.com/go-primus/doma/pkg/asynctask/internal/errors"
 )
 
 // Version of asynq library and CLI.

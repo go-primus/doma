@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/primus/primus/pkg/asynctask/internal/timeutil"
+	"github.com/go-primus/doma/pkg/asynctask/internal/timeutil"
 )
 
 // Lease is a time bound lease for worker to process task.

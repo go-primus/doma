@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-primus/doma/pkg/asynctask/internal/base"
 	"github.com/jiyeyuran/go-eventemitter"
-	"github.com/primus/primus/pkg/asynctask/internal/base"
 )
 
 type EmitBroker struct {

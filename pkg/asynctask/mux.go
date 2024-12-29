@@ -3,10 +3,9 @@ package asynctask
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
-
-	"github.com/primus/primus/pkg/logger"
 )
 
 type Handler interface {
@@ -78,13 +77,13 @@ func (mux *TaskMux) ProcessTask(ctx context.Context, task *Task) error {
 	if pattern == "" {
 		return h.ProcessTask(ctx, task)
 	}
-	logger.L().Debug("=======[", mux.name(), "] ---- handle task: ", task.Type(), " ==============")
+	slog.Debug("handle task", "name", mux.name(), "type", task.Type())
 	err := h.ProcessTask(ctx, task)
 	if err != nil {
-		logger.L().Error("=======[", mux.name(), "] ---- handle task end:", err)
+		slog.Error("handle task end:", "name", mux.name(), "err", err)
 		return err
 	}
-	logger.L().Debug("=======[", mux.name(), "] ---- handle task end: ok ==============")
+	slog.Debug("handle task end: ok", "name", mux.name())
 
 	return nil
 }
@@ -136,7 +135,7 @@ func (mux *TaskMux) Handle(pattern string, handler Handler) {
 	}
 
 	if _, exist := mux.m[pattern]; exist {
-		logger.L().Warn("event mux: multiple registrations for " + pattern)
+		slog.Warn("event mux: multiple registrations for " + pattern)
 		return
 	}
 

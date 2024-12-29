@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/primus/primus/core/common/task"
+	"github.com/go-primus/doma/core/common/task"
 )
 
 type Task struct {

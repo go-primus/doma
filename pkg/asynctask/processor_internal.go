@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/primus/primus/pkg/asynctask/internal/base"
+	"github.com/go-primus/doma/pkg/asynctask/internal/base"
 )
 
 func (p *processor) handleSucceededMessage(msg *base.TaskMessage) {

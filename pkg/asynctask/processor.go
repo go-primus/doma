@@ -3,6 +3,7 @@ package asynctask
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -11,14 +12,13 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/go-primus/doma/pkg/asynctask/internal/base"
+	"github.com/go-primus/doma/pkg/asynctask/internal/errors"
 	"github.com/jiyeyuran/go-eventemitter"
-	"github.com/primus/primus/pkg/asynctask/internal/base"
-	"github.com/primus/primus/pkg/asynctask/internal/errors"
-	"github.com/primus/primus/pkg/logger"
+	// "github.com/go-primus/primus/pkg/logger"
 )
 
 type processor struct {
-	logger  logger.Logger
 	broker  base.Broker
 	emitter eventemitter.IEventEmitter
 
@@ -60,7 +60,7 @@ func newProcessor() *processor {
 // It's safe to call this method multiple times.
 func (p *processor) stop() {
 	p.once.Do(func() {
-		p.logger.Debug("Processor shutting down...")
+		slog.Debug("Processor shutting down...")
 		// Unblock if processor is waiting for sema token.
 		close(p.quit)
 		// Signal the processor goroutine to stop processing tasks
@@ -75,12 +75,12 @@ func (p *processor) shutdown() {
 
 	time.AfterFunc(p.shutdownTimeout, func() { close(p.abort) })
 
-	p.logger.Info("Waiting for all workers to finish...")
+	slog.Info("Waiting for all workers to finish...")
 	// block until all workers have released the token
 	for i := 0; i < cap(p.sema); i++ {
 		p.sema <- struct{}{}
 	}
-	p.logger.Info("All workers have finished")
+	slog.Info("All workers have finished")
 }
 
 func (p *processor) start(wg *sync.WaitGroup) {
@@ -90,7 +90,7 @@ func (p *processor) start(wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-p.done:
-				p.logger.Debug("Processor done")
+				slog.Debug("Processor done")
 				return
 			default:
 				p.exec()
@@ -122,7 +122,7 @@ func (p *processor) exec() {
 		msg, _, err := p.broker.Dequeue()
 		switch {
 		case errors.Is(err, ErrNoProcessableTask):
-			p.logger.Debug("All queues are empty")
+			slog.Debug("All queues are empty")
 			// Queues are empty, this is a normal behavior.
 			// Sleep to avoid slamming redis and let scheduler move tasks into queues.
 			// Note: We are not using blocking pop operation and polling queues instead.
@@ -132,7 +132,7 @@ func (p *processor) exec() {
 			return
 		case err != nil:
 			if p.errLogLimiter.Allow() {
-				p.logger.Errorf("Dequeue error: %v", err)
+				slog.Error("Dequeue error:", "err", err)
 			}
 			<-p.sema // release token
 			return
@@ -234,7 +234,7 @@ func (p *processor) perform(ctx context.Context, task *Task) (err error) {
 		if x := recover(); x != nil {
 			errMsg := string(debug.Stack())
 
-			p.logger.Errorf("recovering from panic. See the stack trace below for details:\n%s", errMsg)
+			slog.Error("recovering from panic. See the stack trace below for details:", "err", errMsg)
 			_, file, line, ok := runtime.Caller(1) // skip the first frame (panic itself)
 			if ok && strings.Contains(file, "runtime/") {
 				// The panic came from the runtime, most likely due to incorrect
