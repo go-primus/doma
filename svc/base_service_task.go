@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-primus/doma/core/common/task"
 	"github.com/go-primus/doma/pkg/eventbus"
-	"github.com/nats-io/nats.go"
 )
 
 // StartTask implements Service.
@@ -38,8 +37,8 @@ func (s *BaseService) SubscribeTask(fn TaskHandler) error {
 
 }
 
-func (s *BaseService) handleTask(fn TaskHandler) func(msg *nats.Msg) {
-	return func(msg *nats.Msg) {
+func (s *BaseService) handleTask(fn TaskHandler) eventbus.EventHandler {
+	return func(msg *eventbus.Msg) {
 		taskx := task.Task{}
 		err := json.Unmarshal(msg.Data, &taskx)
 		if err != nil {

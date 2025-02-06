@@ -3,9 +3,9 @@ package svc
 import (
 	"context"
 
-	"github.com/primus/primus/core/common/command"
-	"github.com/primus/primus/core/common/event"
-	"github.com/primus/primus/core/common/task"
+	"github.com/go-primus/doma/core/common/command"
+	"github.com/go-primus/doma/core/common/event"
+	"github.com/go-primus/doma/core/common/task"
 )
 
 //go:generate stringer -type=ServiceState

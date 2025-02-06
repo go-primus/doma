@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/primus/primus/core/common/event"
+	"github.com/go-primus/doma/core/common/event"
 )
 
 func makeFakeHandler() Handler {

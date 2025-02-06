@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
-	"github.com/primus/primus/core/common/event"
-	"github.com/primus/primus/pkg/logger"
+	"github.com/go-primus/doma/core/common/event"
 )
 
 type Handler interface {
@@ -94,12 +94,12 @@ func (mux *EventMux) OnEvent(ctx context.Context, topic string, event event.Even
 	if pattern == "" {
 		return nil
 	}
-	logger.L().Debug("=======[", mux.name(), "] ---- handle event: ", event.EventType, " ==============")
+	slog.Debug("=======[" + mux.name() + "] ---- handle event: " + string(event.EventType) + " ==============")
 	err := h.HandleEvent(ctx, event)
 	if err != nil {
-		logger.L().Error("=======[", mux.name(), "] ---- handle event end:", err)
+		slog.Error("=======["+mux.name()+"] ---- handle event end:", "err", err)
 	} else {
-		logger.L().Debug("=======[", mux.name(), "] ---- handle event end: ok ==============")
+		slog.Debug("=======[" + mux.name() + "] ---- handle event end: ok ==============")
 	}
 	return nil
 }
@@ -151,7 +151,7 @@ func (mux *EventMux) Handle(pattern string, handler Handler) {
 	}
 
 	if _, exist := mux.m[pattern]; exist {
-		logger.L().Warn("event mux: multiple registrations for " + pattern)
+		slog.Warn("event mux: multiple registrations for " + pattern)
 		return
 	}
 

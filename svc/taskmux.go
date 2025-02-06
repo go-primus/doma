@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/primus/primus/core/common/task"
-	"github.com/primus/primus/pkg/asynctask"
+	"github.com/go-primus/doma/core/common/task"
+	"github.com/go-primus/doma/pkg/asynctask"
 )
 
 type TaskMux struct {

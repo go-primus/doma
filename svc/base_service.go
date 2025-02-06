@@ -12,9 +12,6 @@ import (
 	"github.com/go-primus/doma/core/common/event"
 	"github.com/go-primus/doma/pkg/eventbus"
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
-	"github.com/primus/primus/pkg/logger"
-	"github.com/sirupsen/logrus"
 )
 
 type BaseService struct {
@@ -105,7 +102,7 @@ func (s *BaseService) Start(context.Context) error {
 	if s.getState() != ServiceState_Ready {
 		return fmt.Errorf("service not ready")
 	}
-	logrus.Info("service start :", s.name)
+	slog.Info("service start :", "service", s.name)
 	// s.state = ServiceState_Running
 	s.updateState(ServiceState_Running)
 
@@ -149,8 +146,8 @@ func (s *BaseService) Subscribe(topic string, fn EventHandler) error {
 	return nil
 }
 
-func (s *BaseService) handleMsg(fn EventHandler) func(msg *nats.Msg) {
-	return func(msg *nats.Msg) {
+func (s *BaseService) handleMsg(fn EventHandler) eventbus.EventHandler {
+	return func(msg *eventbus.Msg) {
 
 		if msg == nil {
 			return
@@ -185,8 +182,8 @@ func (s *BaseService) SubscribeCommand(fn CommandHandler) error {
 	return nil
 }
 
-func (s *BaseService) handleCommand(fn CommandHandler) func(msg *nats.Msg) {
-	return func(msg *nats.Msg) {
+func (s *BaseService) handleCommand(fn CommandHandler) eventbus.EventHandler {
+	return func(msg *eventbus.Msg) {
 		cmd := command.Command{}
 		err := json.Unmarshal(msg.Data, &cmd)
 		if err != nil {
@@ -194,10 +191,10 @@ func (s *BaseService) handleCommand(fn CommandHandler) func(msg *nats.Msg) {
 			return
 		}
 
-		logger.L().Info("----service:", s.name, ", receive command bus msg: ", cmd.CommandType)
+		slog.Info("receive command bus msg: ", "service", s.name, "cmd", cmd.CommandType)
 		res, err := fn(cmd)
 		if err != nil {
-			logger.L().Error("----service:", s.name, ", handle command ", cmd.CommandType, " err:", err)
+			slog.Error("handle command ", "service", s.name, "cmd", cmd.CommandType, " err", err)
 			s.bus.Publish(msg.Reply, err.Error())
 			return
 		}
