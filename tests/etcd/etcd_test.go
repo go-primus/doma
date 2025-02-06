@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -17,6 +18,10 @@ func TestEtcd(t *testing.T) {
 	cli.Put(context.TODO(), "key", "val")
 	cli.Delete(context.TODO(), "key")
 	cli.Get(context.TODO(), "key", clientv3.WithCreatedNotify())
+	watcher := cli.Watch(context.Background(), "key")
+	for item := range watcher {
+		fmt.Println("item:", item.Created)
+	}
 
 	txn := cli.Txn(context.TODO())
 	txn.If()
