@@ -12,6 +12,7 @@ type Scheduler interface {
 	Start() error
 	SubmitTask(task Task) (string, error)
 
+	// 暂停、取消、重试任务
 	//
 	GetTask(id string) TaskStatus
 }
