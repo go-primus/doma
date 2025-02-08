@@ -13,6 +13,10 @@ type Scheduler interface {
 	SubmitTask(task Task) (string, error)
 
 	// 暂停、取消、重试任务
+	PauseTask(id string) error
+	ResumeTask(id string) error
+	DeleteTask(id string) error
+
 	//
 	GetTask(id string) TaskStatus
 }
@@ -22,6 +26,21 @@ var _ Scheduler = (*scheduler)(nil)
 type scheduler struct {
 	nc    *nats.Conn
 	store TaskStore
+}
+
+// DeleteTask implements Scheduler.
+func (s *scheduler) DeleteTask(id string) error {
+	panic("unimplemented")
+}
+
+// PauseTask implements Scheduler.
+func (s *scheduler) PauseTask(id string) error {
+	panic("unimplemented")
+}
+
+// ResumeTask implements Scheduler.
+func (s *scheduler) ResumeTask(id string) error {
+	panic("unimplemented")
 }
 
 // GetTask implements Scheduler.
@@ -34,7 +53,22 @@ func (s *scheduler) Start() error {
 	s.nc.Subscribe("tasks.updates", func(msg *nats.Msg) {
 		var status TaskStatus
 		json.Unmarshal(msg.Data, &status)
-		s.store.UpdateStatus(status)
+		s.store.UpdateStatus(status.ID, status)
+	})
+
+	s.nc.Subscribe("tasks.command", func(msg *nats.Msg) {
+		//
+		var cmd TaskCommand
+		json.Unmarshal(msg.Data, &cmd)
+
+		switch cmd.Command {
+		case "pause":
+			s.store.PauseTask(cmd.ID)
+		case "resume":
+			s.store.ResumeTask(cmd.ID)
+		}
+		s.nc.Publish("tasks.worker.command", msg.Data)
+
 	})
 	s.work()
 	return nil
@@ -46,7 +80,7 @@ func (s *scheduler) SubmitTask(task Task) (string, error) {
 		ID:     task.ID,
 		Status: "pending",
 	}
-	s.store.UpdateStatus(initialStatus)
+	s.store.UpdateStatus(task.ID, initialStatus)
 
 	data, _ := json.Marshal(task)
 

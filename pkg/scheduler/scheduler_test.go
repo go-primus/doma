@@ -19,9 +19,14 @@ func TestScheduler(t *testing.T) {
 	sched := scheduler{
 		nc: conn,
 		store: &taskStore{
-			tasks: make(map[string]TaskStatus),
+			tasks: make(map[string]*TaskItem),
 		},
 	}
+
+	// worker := NewProcessor()
+	// worker.handler = NewTaskMux("mux")
+	// worker.Start()
+
 	sched.Start()
 	id, err := sched.SubmitTask(Task{
 		Type:    "move",

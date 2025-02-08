@@ -1,9 +1,20 @@
 package scheduler
 
+type TaskMessage struct {
+	ID      string
+	Type    string
+	Payload any
+}
+
 type Task struct {
 	ID      string
 	Type    string
 	Payload any
+}
+
+type TaskCommand struct {
+	ID      string
+	Command string
 }
 
 // 成功
@@ -16,7 +27,8 @@ type TaskStatus struct {
 	Err      string
 }
 
-// ////////////////////////
-type TaskCtx interface {
-	UpdateProgress(progress int32)
+// /////////////////////////
+type SyncMessage struct {
+	task   TaskMessage
+	status TaskStatus
 }

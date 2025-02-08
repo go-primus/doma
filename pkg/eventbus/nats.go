@@ -44,7 +44,8 @@ func (nb *NatsBus) Publish(topic string, data any) error {
 }
 func (nb *NatsBus) Subscribe(topic string, fn EventHandler) {
 	nb.nc.Subscribe(topic, func(msg *nats.Msg) {
-		fn(msg)
+		_msg := Msg(*msg)
+		fn(&_msg)
 	})
 }
 func (nb *NatsBus) UnSubscribe(topic string, fn EventHandler) {
