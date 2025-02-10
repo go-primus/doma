@@ -96,7 +96,7 @@ func (p *processor) execute(msg TaskMessage) {
 		cancel()
 	}()
 
-	taskCtx := taskCtx{
+	taskCtx := &taskCtx{
 		Context: ctx,
 		task:    msg,
 		updateProgressFunc: func(progress int32) {

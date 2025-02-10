@@ -10,6 +10,24 @@ import (
 	"github.com/google/uuid"
 )
 
+func DemoFunc(ctx context.Context, t *Task) error {
+
+	updateProgress := func(progress int32) {
+		taskCtx, ok := ctx.(TaskContext)
+		if !ok {
+			return
+		}
+		taskCtx.UpdateProgress(progress)
+	}
+
+	for i := 1; i <= 10; i++ {
+		updateProgress(int32(i * 10))
+		time.Sleep(time.Second / 2)
+	}
+
+	return nil
+}
+
 func TestWorker(t *testing.T) {
 	bus, err := eventbus.NewNatsBus(eventbus.NatsConfig{})
 	if err != nil {
@@ -18,24 +36,7 @@ func TestWorker(t *testing.T) {
 	}
 
 	mux := NewTaskMux("worker")
-	mux.HandleFunc("demo", func(ctx context.Context, t *Task) error {
-
-		updateProgress := func(progress int32) {
-			taskCtx, ok := ctx.(taskCtx)
-			if !ok {
-				return
-			}
-			taskCtx.UpdateProgress(progress)
-		}
-
-		for i := 1; i <= 10; i++ {
-			updateProgress(int32(i * 10))
-			time.Sleep(time.Second / 2)
-		}
-
-		return nil
-
-	})
+	mux.HandleFunc("demo", DemoFunc)
 
 	worker := NewWorker(bus, mux)
 	fmt.Println("work start")

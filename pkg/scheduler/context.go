@@ -3,7 +3,8 @@ package scheduler
 import "context"
 
 // ////////////////////////
-type TaskCtx interface {
+type TaskContext interface {
+	context.Context
 	UpdateProgress(progress int32)
 }
 
