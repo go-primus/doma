@@ -2,11 +2,8 @@ package scheduler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-
-	"github.com/go-primus/doma/pkg/eventbus"
 )
 
 type Processor interface {
@@ -17,10 +14,11 @@ type Processor interface {
 var _ Processor = (*processor)(nil)
 
 type processor struct {
-	// emitter eventemitter.IEventEmitter
-	bus eventbus.EventBus
+	queue <-chan TaskMessage
 
 	handler Handler
+
+	sema chan struct{}
 
 	done chan struct{}
 	quit chan struct{}
@@ -30,39 +28,43 @@ type processor struct {
 	store TaskStore
 }
 
-func NewProcessor(bus eventbus.EventBus) *processor {
+func NewProcessor(queue <-chan TaskMessage) *processor {
 	return &processor{
 		// emitter: eventemitter.NewEventEmitter(),
-		bus:     bus,
+		// bus:     bus,
 		done:    make(chan struct{}),
 		quit:    make(chan struct{}),
 		handler: NotFoundHandler(),
+		sema:    make(chan struct{}),
+		queue:   queue,
 	}
 }
 
 // Start implements Processor.
 func (p *processor) Start() {
-	// go func() {
-	p.start()
-	// }()
+	go func() {
+		fmt.Println("11111111")
+		p.start()
+
+		fmt.Println("22222222")
+	}()
 }
 
 func (p *processor) start() {
-	// for {
-	// 	select {
-	// 	case <-p.done:
-	// 		return
-	// 	default:
-	// 		p.exec()
-	// 	}
-	// }
-	p.exec()
+	for {
+		select {
+		case <-p.done:
+			return
+		default:
+			fmt.Println("exec")
+			p.exec()
+		}
+	}
+	// p.exec()
 }
 
 // Stop implements Processor.
 func (p *processor) Stop() {
-	//
-	// p.emitter.RemoveAllListeners("")
 
 	close(p.quit)
 	p.done <- struct{}{}
@@ -71,23 +73,20 @@ func (p *processor) Stop() {
 }
 
 func (p *processor) exec() {
-	// select {
-	// case <-p.quit:
-	// 	return
+	fmt.Println("execxxx")
+	select {
+	case <-p.quit:
+		return
 	// case p.sema <- struct{}{}: // acquire token
-	// }
+	case msg := <-p.queue:
 
-	p.bus.Subscribe("tasks.queues", func(msg *eventbus.Msg) {
-		var taskMsg TaskMessage
-		json.Unmarshal(msg.Data, &taskMsg)
-
-		fmt.Println("handle task queues msg")
-		//
-		p.execute(taskMsg)
-
-	})
-
-	// subscribe tasks.command
+		go func() {
+			defer func() {
+				// <-p.sema // release token
+			}()
+			p.execute(msg)
+		}()
+	}
 
 }
 

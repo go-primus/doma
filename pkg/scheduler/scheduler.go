@@ -16,6 +16,7 @@ type Scheduler interface {
 	PauseTask(id string) error
 	ResumeTask(id string) error
 	DeleteTask(id string) error
+	RetryTask(id string) error
 
 	//
 	GetTask(id string) TaskStatus
@@ -26,6 +27,11 @@ var _ Scheduler = (*scheduler)(nil)
 type scheduler struct {
 	nc    *nats.Conn
 	store TaskStore
+}
+
+// RetryTask implements Scheduler.
+func (s *scheduler) RetryTask(id string) error {
+	panic("unimplemented")
 }
 
 // DeleteTask implements Scheduler.

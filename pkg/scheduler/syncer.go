@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"log/slog"
 	"time"
 )
 
@@ -64,40 +63,40 @@ func (s *syncer) syncinternal() {
 	}
 }
 
-func (s *syncer) syncing() {
-	var requests []*syncFunc
+// func (s *syncer) syncing() {
+// 	var requests []*syncFunc
 
-	for {
-		select {
-		case <-s.done:
-			for _, req := range requests {
-				if err := s.syncFunc(req.status); err != nil {
-					slog.Error(err.Error())
-				}
-			}
-			slog.Debug("syncer done")
-			return
-		case syncMsg := <-s.sync:
-			requests = append(requests, &syncFunc{
-				SyncMessage: *syncMsg,
-				fn: func() error {
-					return nil
-				},
-			})
-		case <-time.After(time.Second * 1):
-			var temp []*syncFunc
-			for _, req := range requests {
-				// if req.deadline
-				if err := s.syncFunc(req.status); err != nil {
-					temp = append(temp, req)
-				}
-			}
-			requests = temp
-		}
-	}
-}
+// 	for {
+// 		select {
+// 		case <-s.done:
+// 			for _, req := range requests {
+// 				if err := s.syncFunc(req.status); err != nil {
+// 					slog.Error(err.Error())
+// 				}
+// 			}
+// 			slog.Debug("syncer done")
+// 			return
+// 		case syncMsg := <-s.sync:
+// 			requests = append(requests, &syncFunc{
+// 				SyncMessage: *syncMsg,
+// 				fn: func() error {
+// 					return nil
+// 				},
+// 			})
+// 		case <-time.After(time.Second * 1):
+// 			var temp []*syncFunc
+// 			for _, req := range requests {
+// 				// if req.deadline
+// 				if err := s.syncFunc(req.status); err != nil {
+// 					temp = append(temp, req)
+// 				}
+// 			}
+// 			requests = temp
+// 		}
+// 	}
+// }
 
-type syncFunc struct {
-	SyncMessage
-	fn func() error
-}
+// type syncFunc struct {
+// 	SyncMessage
+// 	fn func() error
+// }
