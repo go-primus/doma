@@ -11,7 +11,9 @@ import (
 var _ Scheduler = (*scheduler)(nil)
 
 type scheduler struct {
-	nc    *nats.Conn
+	nc *nats.Conn
+
+	queue SchedulePolicy
 	store TaskStore
 }
 
@@ -64,6 +66,14 @@ func (s *scheduler) Start() error {
 	})
 	s.work()
 	return nil
+}
+
+func (s *scheduler) schedule() {
+	// schedule  loop
+
+	for {
+
+	}
 }
 
 func (s *scheduler) SubmitTask(task Task) (string, error) {

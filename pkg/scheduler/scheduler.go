@@ -18,20 +18,17 @@ type Scheduler interface {
 	GetTask(id string) TaskStatus
 }
 
-type SchedulePolicy interface{
-	Push(task Task) (int,error) 
-	Pop() Task 
-	Len() int 
+type SchedulePolicy interface {
+	Push(task Task) (int, error)
+	Pop() Task
+	Len() int
 }
-
-
-type ScheduleQueue interface {}
-
 
 func NewScheduler(policyName string) Scheduler {
 	switch policyName {
 	case "":
 		fallthrough
-		case 
+	default:
 	}
+	return nil
 }

@@ -14,7 +14,7 @@ type Processor interface {
 var _ Processor = (*processor)(nil)
 
 type processor struct {
-	queue <-chan TaskMessage
+	dispatch <-chan TaskMessage
 
 	handler Handler
 
@@ -28,15 +28,15 @@ type processor struct {
 	store TaskStore
 }
 
-func NewProcessor(queue <-chan TaskMessage) *processor {
+func NewProcessor(dispatch <-chan TaskMessage) *processor {
 	return &processor{
 		// emitter: eventemitter.NewEventEmitter(),
 		// bus:     bus,
-		done:    make(chan struct{}),
-		quit:    make(chan struct{}),
-		handler: NotFoundHandler(),
-		sema:    make(chan struct{}),
-		queue:   queue,
+		done:     make(chan struct{}),
+		quit:     make(chan struct{}),
+		handler:  NotFoundHandler(),
+		sema:     make(chan struct{}),
+		dispatch: dispatch,
 	}
 }
 
@@ -78,7 +78,7 @@ func (p *processor) exec() {
 	case <-p.quit:
 		return
 	// case p.sema <- struct{}{}: // acquire token
-	case msg := <-p.queue:
+	case msg := <-p.dispatch:
 
 		go func() {
 			defer func() {

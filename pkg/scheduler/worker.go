@@ -9,8 +9,10 @@ import (
 )
 
 type worker struct {
-	bus       eventbus.EventBus
-	queue     chan<- TaskMessage
+	bus eventbus.EventBus
+
+	dispatch chan<- TaskMessage // dispatch queue
+	//
 	processor processor
 	syncer    syncer
 
@@ -26,34 +28,15 @@ func NewWorker(bus eventbus.EventBus, handler Handler) *worker {
 		tasks: make(map[string]*TaskItem),
 	}
 
-	queue := make(chan TaskMessage, 10)
+	dispatch := make(chan TaskMessage, 10)
 	syncCh := make(chan *SyncMessage)
 
 	// mux := NewTaskMux("worker")
 
-	processor := NewProcessor(queue)
+	processor := NewProcessor(dispatch)
 	processor.sync = syncCh
 	processor.store = store
 	processor.handler = handler
-	// processor.handler = HandlerFunc(func(ctx context.Context, t *Task) error {
-
-	// 	updateProgress := func(progress int32) {
-	// 		taskCtx, ok := ctx.(taskCtx)
-	// 		if !ok {
-	// 			return
-	// 		}
-	// 		taskCtx.UpdateProgress(progress)
-	// 	}
-
-	// 	for i := 1; i <= 10; i++ {
-	// 		updateProgress(int32(i * 10))
-	// 		time.Sleep(time.Second / 2)
-	// 	}
-
-	// 	return nil
-	// })
-
-	// processor.handler = fun
 
 	syncer := syncer{}
 	syncer.sync = syncCh
@@ -65,7 +48,7 @@ func NewWorker(bus eventbus.EventBus, handler Handler) *worker {
 
 	return &worker{
 		bus:       bus,
-		queue:     queue,
+		dispatch:  dispatch,
 		processor: *processor,
 		store:     store,
 		syncer:    syncer,
@@ -86,7 +69,7 @@ func (s *worker) start() {
 
 		fmt.Println("handle task queues msg")
 		//
-		s.queue <- taskMsg
+		s.dispatch <- taskMsg
 		fmt.Println("handle task queues msgxxx")
 	})
 }
