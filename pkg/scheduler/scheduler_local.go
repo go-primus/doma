@@ -17,6 +17,16 @@ type scheduler struct {
 	store TaskStore
 }
 
+// Add implements Scheduler.
+func (s *scheduler) Add(task Task) error {
+	panic("unimplemented")
+}
+
+// Stop implements Scheduler.
+func (s *scheduler) Stop() error {
+	panic("unimplemented")
+}
+
 // RetryTask implements Scheduler.
 func (s *scheduler) RetryTask(id string) error {
 	panic("unimplemented")
@@ -47,7 +57,6 @@ func (s *scheduler) Start() error {
 	s.nc.Subscribe("tasks.updates", func(msg *nats.Msg) {
 		var status TaskStatus
 		json.Unmarshal(msg.Data, &status)
-		s.store.UpdateStatus(status.ID, status)
 	})
 
 	s.nc.Subscribe("tasks.command", func(msg *nats.Msg) {
@@ -78,11 +87,10 @@ func (s *scheduler) schedule() {
 
 func (s *scheduler) SubmitTask(task Task) (string, error) {
 	task.ID = uuid.NewString()
-	initialStatus := TaskStatus{
-		ID:     task.ID,
-		Status: "pending",
-	}
-	s.store.UpdateStatus(task.ID, initialStatus)
+	// initialStatus := TaskStatus{
+	// 	Status: "pending",
+	// }
+	// s.store.AddTask(task.ID, initialStatus)
 
 	data, _ := json.Marshal(task)
 
@@ -96,10 +104,6 @@ func (s *scheduler) work() {
 		var task Task
 		json.Unmarshal(msg.Data, &task)
 		//
-		s.updateStatus(TaskStatus{
-			ID:     task.ID,
-			Status: "running",
-		})
 
 		//
 		fmt.Println("handle task")
@@ -107,12 +111,6 @@ func (s *scheduler) work() {
 		// taskCtx := taskCtx{taskID}
 		//err :=  processTask(taskCtx, task)
 		// mux.processTask()
-
-		s.updateStatus(TaskStatus{
-			ID:       task.ID,
-			Status:   "completed",
-			Progress: 100,
-		})
 
 	})
 }

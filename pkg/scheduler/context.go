@@ -8,6 +8,16 @@ type TaskContext interface {
 	UpdateProgress(progress int32)
 }
 
+type ProgressFunc func(progress int32)
+
+func NewContext(ctx context.Context, msg TaskMessage, progressFunc ProgressFunc) TaskContext {
+	return &taskCtx{
+		Context:            ctx,
+		task:               msg,
+		updateProgressFunc: progressFunc,
+	}
+}
+
 type taskCtx struct {
 	context.Context
 

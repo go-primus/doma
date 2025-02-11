@@ -53,8 +53,8 @@ func TestWorker(t *testing.T) {
 	// task2.Type = "demo"
 	// bus.Publish("tasks.queues", task2)
 	time.Sleep(time.Second * 3)
-	status := worker.store.GetStatus(task.ID)
-	fmt.Println("---xxxxxxxxxx-----task status:", status.ID, "----", status.Status, "----", status.Progress)
+	taskitem := worker.store.GetTask(task.ID)
+	fmt.Println("---xxxxxxxxxx-----task status:", taskitem.msg.ID, "----", taskitem.status.Status, "----", taskitem.progress.Progress)
 	time.Sleep(time.Second * 7)
 	// worker.Start()
 }

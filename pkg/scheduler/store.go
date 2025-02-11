@@ -10,23 +10,53 @@ type TaskStore interface {
 	PauseTask(taskId string)
 	ResumeTask(taskId string)
 	UpdateStatus(taskId string, status TaskStatus)
+	UpdateProgress(taskId string, progress TaskProgress)
 	GetStatus(taskId string) TaskStatus
+	GetTask(taskId string) *TaskItem
 
 	MarkSynced(taskId string)
-	ListSyncStatus() []TaskStatus
+	ListSyncTasks() []*TaskItem
 }
 
 var _ TaskStore = (*taskStore)(nil)
 
 type TaskItem struct {
-	msg    TaskMessage
-	status TaskStatus
-	synced bool
+	msg      TaskMessage
+	status   TaskStatus
+	progress TaskProgress
+	synced   bool
 }
 
 type taskStore struct {
 	tasks map[string]*TaskItem
 	mu    sync.Mutex
+}
+
+// GetTask implements TaskStore.
+func (t *taskStore) GetTask(taskId string) *TaskItem {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	task, ok := t.tasks[taskId]
+	if !ok {
+		return nil
+	}
+
+	return task
+}
+
+// UpdateProgress implements TaskStore.
+func (t *taskStore) UpdateProgress(taskId string, progress TaskProgress) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	item, ok := t.tasks[taskId]
+	if !ok {
+		return
+	}
+
+	item.progress = progress
+	item.synced = false
 }
 
 // MarkSynced implements TaskStore.
@@ -42,13 +72,13 @@ func (t *taskStore) MarkSynced(taskId string) {
 }
 
 // GetUnSyncTask implements TaskStore.
-func (t *taskStore) ListSyncStatus() []TaskStatus {
+func (t *taskStore) ListSyncTasks() []*TaskItem {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	tasks := []TaskStatus{}
+	tasks := []*TaskItem{}
 	for _, task := range t.tasks {
 		if !task.synced {
-			tasks = append(tasks, task.status)
+			tasks = append(tasks, task)
 		}
 	}
 	return tasks
@@ -60,8 +90,7 @@ func (t *taskStore) AddTask(task TaskMessage) {
 	t.tasks[task.ID] = &TaskItem{
 		msg: task,
 		status: TaskStatus{
-			ID:     task.ID,
-			Status: "running",
+			Status: TaskState_Running,
 		},
 		synced: false,
 	}
@@ -107,7 +136,7 @@ func (t *taskStore) GetStatus(taskId string) TaskStatus {
 func (t *taskStore) UpdateStatus(taskId string, status TaskStatus) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	fmt.Println("update task :", status.ID, "---", status.Status)
+	fmt.Println("update task :", taskId, "---", status.Status)
 	item, ok := t.tasks[taskId]
 	if !ok {
 		return

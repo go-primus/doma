@@ -24,8 +24,8 @@ type processor struct {
 	quit chan struct{}
 
 	//
-	sync  chan<- *SyncMessage
-	store TaskStore
+	sync chan<- *SyncMessage
+	// finished chan<- TaskMessage
 }
 
 func NewProcessor(dispatch <-chan TaskMessage) *processor {
@@ -43,10 +43,7 @@ func NewProcessor(dispatch <-chan TaskMessage) *processor {
 // Start implements Processor.
 func (p *processor) Start() {
 	go func() {
-		fmt.Println("11111111")
 		p.start()
-
-		fmt.Println("22222222")
 	}()
 }
 
@@ -56,11 +53,9 @@ func (p *processor) start() {
 		case <-p.done:
 			return
 		default:
-			fmt.Println("exec")
 			p.exec()
 		}
 	}
-	// p.exec()
 }
 
 // Stop implements Processor.
@@ -73,7 +68,6 @@ func (p *processor) Stop() {
 }
 
 func (p *processor) exec() {
-	fmt.Println("execxxx")
 	select {
 	case <-p.quit:
 		return
@@ -82,6 +76,7 @@ func (p *processor) exec() {
 
 		go func() {
 			defer func() {
+				// p.finished <- msg
 				// <-p.sema // release token
 			}()
 			p.execute(msg)
@@ -96,26 +91,15 @@ func (p *processor) execute(msg TaskMessage) {
 		cancel()
 	}()
 
-	taskCtx := &taskCtx{
-		Context: ctx,
-		task:    msg,
-		updateProgressFunc: func(progress int32) {
-			p.handleProgressMessage(msg, progress)
-		},
-	}
+	taskCtx := NewContext(ctx, msg, func(progress int32) {
+		p.handleProgressMessage(msg, progress)
+	})
 
 	select {
 	case <-ctx.Done():
 		return
 	default:
 	}
-
-	// check task
-	// 查询任务是否正在执行，如果正在执行忽略
-	//
-	p.store.AddTask(msg)
-
-	// update task status
 
 	resCh := make(chan error, 1)
 	go func() {
@@ -152,49 +136,40 @@ func (p *processor) perform(ctx context.Context, task *Task) error {
 }
 
 func (p *processor) handleFailedMessage(msg TaskMessage, err error) {
+
 	taskStatus := TaskStatus{}
-	taskStatus.ID = msg.ID
-	taskStatus.Status = "failed"
-	taskStatus.Err = err.Error()
+	taskStatus.Status = TaskState_Failed
+	taskStatus.Err = err
 
-	p.store.UpdateStatus(msg.ID, taskStatus)
-
-	// p.sync <- &SyncMessage{
-	// 	task:   msg,
-	// 	status: taskStatus,
-	// }
-	// p.bus.Publish("tasks.updates", taskStatus)
+	p.sync <- &SyncMessage{
+		task:   msg,
+		status: taskStatus,
+	}
 }
 
 func (p *processor) handleSucceededMessage(msg TaskMessage) {
 
 	taskStatus := TaskStatus{}
-	taskStatus.ID = msg.ID
-	taskStatus.Status = "completed"
-	taskStatus.Progress = 100
+	taskStatus.Status = TaskState_Completed
 
-	p.store.UpdateStatus(msg.ID, taskStatus)
+	p.sync <- &SyncMessage{
+		task:   msg,
+		status: taskStatus,
+	}
 
-	// p.sync <- &SyncMessage{
-	// 	task:   msg,
-	// 	status: taskStatus,
-	// }
-
-	// 失败需要重发
-	// p.bus.Publish("tasks.updates", taskStatus)
 }
 
 func (p *processor) handleProgressMessage(msg TaskMessage, progress int32) {
 
 	taskStatus := TaskStatus{}
-	taskStatus.ID = msg.ID
-	taskStatus.Status = "running"
-	taskStatus.Progress = int(progress)
+	taskStatus.Status = TaskState_Running
+	taskProgress := TaskProgress{
+		Progress: int(progress),
+	}
 
-	p.store.UpdateStatus(msg.ID, taskStatus)
-
-	// p.sync <- &SyncMessage{
-	// 	task:   msg,
-	// 	status: taskStatus,
-	// }
+	p.sync <- &SyncMessage{
+		task:     msg,
+		status:   taskStatus,
+		progress: taskProgress,
+	}
 }

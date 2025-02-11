@@ -10,11 +10,19 @@ type syncer struct {
 	sync <-chan *SyncMessage
 
 	//
-	done chan struct{}
+	done   chan struct{}
+	notify chan struct{}
 
 	//
 	store    TaskStore
-	syncFunc func(status TaskStatus) error
+	syncFunc func(status SyncMessage) error
+}
+
+func newSyncer() *syncer {
+	return &syncer{
+		done:   make(chan struct{}),
+		notify: make(chan struct{}),
+	}
 }
 
 func (s *syncer) shutdown() {
@@ -23,13 +31,30 @@ func (s *syncer) shutdown() {
 
 func (s *syncer) Start() {
 
-	// go func() {
-	// 	s.syncing()
-	// }()
+	go func() {
+		s.syncing()
+	}()
 
 	go func() {
 		s.syncTask()
 	}()
+}
+
+func (s *syncer) syncing() {
+	for {
+		select {
+		case <-s.done:
+			return
+		case syncmsg := <-s.sync:
+			s.store.UpdateStatus(syncmsg.task.ID, syncmsg.status)
+
+			if syncmsg.status.Status == TaskState_Running {
+				s.store.UpdateProgress(syncmsg.task.ID, syncmsg.progress)
+			}
+			s.notify <- struct{}{}
+
+		}
+	}
 }
 
 func (s *syncer) syncTask() {
@@ -39,13 +64,10 @@ func (s *syncer) syncTask() {
 			// trigger sync
 			s.syncinternal()
 			return
-		case <-s.sync:
-		// 	// triger sync
-
-		// 	s.syncinternal()
+		case <-s.notify:
+			s.syncinternal()
 		case <-time.After(time.Second):
 			// trigger sync
-
 			s.syncinternal()
 		}
 	}
@@ -54,11 +76,15 @@ func (s *syncer) syncTask() {
 func (s *syncer) syncinternal() {
 	// 获取未同步状态
 
-	tasks := s.store.ListSyncStatus()
+	tasks := s.store.ListSyncTasks()
 	for _, task := range tasks {
-		err := s.syncFunc(task)
+		err := s.syncFunc(SyncMessage{
+			task:     task.msg,
+			status:   task.status,
+			progress: task.progress,
+		})
 		if err == nil {
-			s.store.MarkSynced(task.ID)
+			s.store.MarkSynced(task.msg.ID)
 		}
 	}
 }
