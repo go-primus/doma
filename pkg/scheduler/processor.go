@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+
+	"github.com/go-primus/doma/pkg/scheduler/internal/cancelation"
 )
 
 type Processor interface {
@@ -18,25 +20,28 @@ type processor struct {
 
 	handler Handler
 
+	store TaskStore
+
 	sema chan struct{}
 
 	done chan struct{}
 	quit chan struct{}
 
+	cancelations *cancelation.Cancelations
+
 	//
-	sync chan<- *SyncMessage
+	sync chan<- *SyncMessage // report sync message ,task status
 	// finished chan<- TaskMessage
 }
 
-func NewProcessor(dispatch <-chan TaskMessage) *processor {
+func NewProcessor(dispatch <-chan TaskMessage, cancelations *cancelation.Cancelations) *processor {
 	return &processor{
-		// emitter: eventemitter.NewEventEmitter(),
-		// bus:     bus,
-		done:     make(chan struct{}),
-		quit:     make(chan struct{}),
-		handler:  NotFoundHandler(),
-		sema:     make(chan struct{}),
-		dispatch: dispatch,
+		dispatch:     dispatch,
+		done:         make(chan struct{}),
+		quit:         make(chan struct{}),
+		sema:         make(chan struct{}),
+		handler:      NotFoundHandler(),
+		cancelations: cancelations,
 	}
 }
 
@@ -75,6 +80,7 @@ func (p *processor) exec() {
 	case msg := <-p.dispatch:
 
 		go func() {
+
 			defer func() {
 				// p.finished <- msg
 				// <-p.sema // release token
@@ -86,14 +92,21 @@ func (p *processor) exec() {
 }
 
 func (p *processor) execute(msg TaskMessage) {
+
 	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelations.Add(msg.ID, cancel)
 	defer func() {
 		cancel()
+		p.cancelations.Delete(msg.ID)
 	}()
 
-	taskCtx := NewContext(ctx, msg, func(progress int32) {
+	taskCtx := NewContext(ctx, msg, WithProgressFunc(func(progress int32) {
 		p.handleProgressMessage(msg, progress)
-	})
+	}), WithSaveCheckPointFunc(func(checkPoint any) {
+		p.saveCheckPoint(msg.ID, checkPoint)
+	}), WithLoadCheckPointFunc(func() any {
+		return p.loadCheckPoint(msg.ID)
+	}))
 
 	select {
 	case <-ctx.Done():
@@ -172,4 +185,13 @@ func (p *processor) handleProgressMessage(msg TaskMessage, progress int32) {
 		status:   taskStatus,
 		progress: taskProgress,
 	}
+}
+
+func (p *processor) saveCheckPoint(taskId string, checkpoint any) {
+	p.store.SaveCheckPoint(taskId, checkpoint)
+}
+
+func (p *processor) loadCheckPoint(taskId string) any {
+
+	return p.store.LoadCheckPoint(taskId)
 }

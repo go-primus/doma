@@ -17,5 +17,3 @@ type TaskResult interface {
 	WaitToFinish()
 	Notify(err error)
 }
-
-type TaskInfo struct{}

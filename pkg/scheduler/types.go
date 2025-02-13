@@ -2,10 +2,26 @@ package scheduler
 
 import "time"
 
+type ITask interface {
+	Wait() error
+	Result() []byte
+}
+
+////////////////////
+
 type TaskMessage struct {
 	ID      string
 	Type    string
 	Payload any
+}
+
+type TaskObject struct {
+}
+
+type TaskResource struct {
+}
+
+type TaskInfo struct {
 }
 
 type Task struct {

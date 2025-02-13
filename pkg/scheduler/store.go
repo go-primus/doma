@@ -11,6 +11,10 @@ type TaskStore interface {
 	ResumeTask(taskId string)
 	UpdateStatus(taskId string, status TaskStatus)
 	UpdateProgress(taskId string, progress TaskProgress)
+
+	SaveCheckPoint(taskId string, checkPoint any)
+	LoadCheckPoint(taskId string) any
+
 	GetStatus(taskId string) TaskStatus
 	GetTask(taskId string) *TaskItem
 
@@ -21,15 +25,43 @@ type TaskStore interface {
 var _ TaskStore = (*taskStore)(nil)
 
 type TaskItem struct {
-	msg      TaskMessage
-	status   TaskStatus
-	progress TaskProgress
-	synced   bool
+	msg        TaskMessage
+	status     TaskStatus
+	progress   TaskProgress
+	checkpoint any
+	synced     bool
 }
 
 type taskStore struct {
 	tasks map[string]*TaskItem
 	mu    sync.Mutex
+}
+
+// LoadCheckPoint implements TaskStore.
+func (t *taskStore) LoadCheckPoint(taskId string) any {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	task, ok := t.tasks[taskId]
+	if !ok {
+		return nil
+	}
+
+	return task.checkpoint
+}
+
+// SaveCheckPoint implements TaskStore.
+func (t *taskStore) SaveCheckPoint(taskId string, checkPoint any) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	task, ok := t.tasks[taskId]
+	if !ok {
+		return
+	}
+
+	task.checkpoint = checkPoint
+
 }
 
 // GetTask implements TaskStore.

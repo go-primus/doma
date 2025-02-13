@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -10,19 +11,27 @@ import (
 	"github.com/google/uuid"
 )
 
-func DemoFunc(ctx context.Context, t *Task) error {
+func DemoFunc(ctx TaskContext, t *Task) error {
 
-	updateProgress := func(progress int32) {
-		taskCtx, ok := ctx.(TaskContext)
-		if !ok {
-			return
-		}
-		taskCtx.UpdateProgress(progress)
+	// load check point
+	//
+	var step int = 1
+	checkPoint, ok := ctx.LoadCheckPoint().(int)
+	if ok {
+		step = checkPoint
 	}
 
-	for i := 1; i <= 10; i++ {
-		updateProgress(int32(i * 10))
-		time.Sleep(time.Second / 2)
+	for i := step; i <= 10; i++ {
+		select {
+		case <-ctx.Done():
+			slog.Warn("task canceled")
+			ctx.SaveCheckPoint(i)
+			// save checkpoint
+			return nil
+		default:
+			ctx.UpdateProgress(int32(i * 10))
+			time.Sleep(time.Second / 2)
+		}
 	}
 
 	return nil
@@ -36,7 +45,17 @@ func TestWorker(t *testing.T) {
 	}
 
 	mux := NewTaskMux("worker")
-	mux.HandleFunc("demo", DemoFunc)
+	mux.HandleFunc("demo", func(ctx context.Context, t *Task) error {
+
+		dctx, ok := ctx.(TaskContext)
+		if !ok {
+			return fmt.Errorf("not context")
+		}
+
+		//
+		return DemoFunc(dctx, t)
+
+	})
 
 	worker := NewWorker(bus, mux)
 	fmt.Println("work start")
@@ -52,9 +71,21 @@ func TestWorker(t *testing.T) {
 	// task2.ID = uuid.NewString()
 	// task2.Type = "demo"
 	// bus.Publish("tasks.queues", task2)
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	taskitem := worker.store.GetTask(task.ID)
 	fmt.Println("---xxxxxxxxxx-----task status:", taskitem.msg.ID, "----", taskitem.status.Status, "----", taskitem.progress.Progress)
+
+	bus.Publish("tasks.commands", TaskCommand{
+		ID:      task.ID,
+		Command: "pause",
+	})
+
+	time.Sleep(time.Second * 2)
+	bus.Publish("tasks.commands", TaskCommand{
+		ID:      task.ID,
+		Command: "resume",
+	})
+
 	time.Sleep(time.Second * 7)
 	// worker.Start()
 }

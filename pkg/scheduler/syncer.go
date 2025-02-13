@@ -18,6 +18,9 @@ type syncer struct {
 	syncFunc func(status SyncMessage) error
 }
 
+type syncerParams struct {
+}
+
 func newSyncer() *syncer {
 	return &syncer{
 		done:   make(chan struct{}),
