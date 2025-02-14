@@ -122,4 +122,5 @@ func (s *worker) start() {
 func (s *worker) Stop() {
 	s.syncer.shutdown()
 	s.processor.Stop()
+	s.subscriber.Shutdown()
 }

@@ -88,6 +88,6 @@ func TestWorker(t *testing.T) {
 		Command: "resume",
 	})
 
-	time.Sleep(time.Second * 7)
+	time.Sleep(time.Second * 3)
 	// worker.Start()
 }

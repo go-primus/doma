@@ -1,7 +1,10 @@
 package model
 
 type TaskMessage struct {
-	ID      string
-	Type    string
+	ID   string // unique identifier
+	Type string // task kind
+
+	Metadata TaskMetadata
+
 	Payload any
 }

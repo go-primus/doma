@@ -103,22 +103,30 @@ func (p *processor) execute(msg model.TaskMessage) {
 		p.cancelations.Delete(msg.ID)
 	}()
 
-	taskCtx := NewContext(ctx, msg, WithProgressFunc(func(progress int32) {
-		p.handleProgressMessage(msg, progress)
-	}), WithSaveCheckPointFunc(func(checkPoint any) {
-		p.saveCheckPoint(msg.ID, checkPoint)
-	}), WithLoadCheckPointFunc(func() any {
-		return p.loadCheckPoint(msg.ID)
-	}))
-
+	// check context before starting a worker goroutine.
 	select {
 	case <-ctx.Done():
+		// alreay canceled (e.g. deadline exceeded).
+		p.handleFailedMessage(msg, ctx.Err())
 		return
 	default:
 	}
 
 	resCh := make(chan error, 1)
 	go func() {
+
+		taskCtx := NewContext(ctx, msg,
+			WithProgressFunc(func(progress int32) {
+				p.handleProgressMessage(msg, progress)
+			}),
+			WithSaveCheckPointFunc(func(checkPoint any) {
+				p.saveCheckPoint(msg.ID, checkPoint)
+			}),
+			WithLoadCheckPointFunc(func() any {
+				return p.loadCheckPoint(msg.ID)
+			}),
+		)
+
 		task := &model.Task{
 			ID:      msg.ID,
 			Type:    msg.Type,
@@ -153,6 +161,10 @@ func (p *processor) perform(ctx context.Context, task *model.Task) (err error) {
 	}()
 	return p.handler.ProcessTask(ctx, task)
 }
+
+///////////////////////
+// processor handler //
+///////////////////////
 
 func (p *processor) handleFailedMessage(msg model.TaskMessage, err error) {
 
