@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"context"
+
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
 )
 
 // ////////////////////////
@@ -19,14 +21,14 @@ type LoadCheckPointFunc func() any
 type taskCtx struct {
 	context.Context
 
-	task TaskMessage
+	task model.TaskMessage
 
 	updateProgressFunc ProgressFunc
 	saveCheckPointFunc SaveCheckPointFunc
 	loadCheckPointFunc LoadCheckPointFunc
 }
 
-func NewContext(ctx context.Context, msg TaskMessage, opts ...OptionFunc) TaskContext {
+func NewContext(ctx context.Context, msg model.TaskMessage, opts ...OptionFunc) TaskContext {
 	tctx := &taskCtx{
 		Context: ctx,
 		task:    msg,

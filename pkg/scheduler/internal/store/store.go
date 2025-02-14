@@ -1,21 +1,23 @@
-package scheduler
+package store
 
 import (
 	"fmt"
 	"sync"
+
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
 )
 
 type TaskStore interface {
-	AddTask(task TaskMessage)
+	AddTask(task model.TaskMessage)
 	PauseTask(taskId string)
 	ResumeTask(taskId string)
-	UpdateStatus(taskId string, status TaskStatus)
-	UpdateProgress(taskId string, progress TaskProgress)
+	UpdateStatus(taskId string, status model.TaskStatus)
+	UpdateProgress(taskId string, progress model.TaskProgress)
 
 	SaveCheckPoint(taskId string, checkPoint any)
 	LoadCheckPoint(taskId string) any
 
-	GetStatus(taskId string) TaskStatus
+	GetStatus(taskId string) model.TaskStatus
 	GetTask(taskId string) *TaskItem
 
 	MarkSynced(taskId string)
@@ -25,16 +27,22 @@ type TaskStore interface {
 var _ TaskStore = (*taskStore)(nil)
 
 type TaskItem struct {
-	msg        TaskMessage
-	status     TaskStatus
-	progress   TaskProgress
-	checkpoint any
-	synced     bool
+	Msg        model.TaskMessage
+	Status     model.TaskStatus
+	Progress   model.TaskProgress
+	Checkpoint any
+	Synced     bool
 }
 
 type taskStore struct {
 	tasks map[string]*TaskItem
 	mu    sync.Mutex
+}
+
+func NewTaskStore() *taskStore {
+	return &taskStore{
+		tasks: make(map[string]*TaskItem),
+	}
 }
 
 // LoadCheckPoint implements TaskStore.
@@ -47,7 +55,7 @@ func (t *taskStore) LoadCheckPoint(taskId string) any {
 		return nil
 	}
 
-	return task.checkpoint
+	return task.Checkpoint
 }
 
 // SaveCheckPoint implements TaskStore.
@@ -60,7 +68,7 @@ func (t *taskStore) SaveCheckPoint(taskId string, checkPoint any) {
 		return
 	}
 
-	task.checkpoint = checkPoint
+	task.Checkpoint = checkPoint
 
 }
 
@@ -78,7 +86,7 @@ func (t *taskStore) GetTask(taskId string) *TaskItem {
 }
 
 // UpdateProgress implements TaskStore.
-func (t *taskStore) UpdateProgress(taskId string, progress TaskProgress) {
+func (t *taskStore) UpdateProgress(taskId string, progress model.TaskProgress) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -87,8 +95,8 @@ func (t *taskStore) UpdateProgress(taskId string, progress TaskProgress) {
 		return
 	}
 
-	item.progress = progress
-	item.synced = false
+	item.Progress = progress
+	item.Synced = false
 }
 
 // MarkSynced implements TaskStore.
@@ -100,7 +108,7 @@ func (t *taskStore) MarkSynced(taskId string) {
 		return
 	}
 
-	task.synced = true
+	task.Synced = true
 }
 
 // GetUnSyncTask implements TaskStore.
@@ -109,22 +117,22 @@ func (t *taskStore) ListSyncTasks() []*TaskItem {
 	defer t.mu.Unlock()
 	tasks := []*TaskItem{}
 	for _, task := range t.tasks {
-		if !task.synced {
+		if !task.Synced {
 			tasks = append(tasks, task)
 		}
 	}
 	return tasks
 }
 
-func (t *taskStore) AddTask(task TaskMessage) {
+func (t *taskStore) AddTask(task model.TaskMessage) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.tasks[task.ID] = &TaskItem{
-		msg: task,
-		status: TaskStatus{
-			Status: TaskState_Running,
+		Msg: task,
+		Status: model.TaskStatus{
+			Status: model.TaskState_Running,
 		},
-		synced: false,
+		Synced: false,
 	}
 }
 
@@ -137,8 +145,8 @@ func (t *taskStore) PauseTask(taskId string) {
 		return
 	}
 
-	item.status.Status = "paused"
-	item.synced = false
+	item.Status.Status = "paused"
+	item.Synced = false
 	t.tasks[taskId] = item
 
 }
@@ -152,20 +160,20 @@ func (t *taskStore) ResumeTask(taskId string) {
 		return
 	}
 
-	item.status.Status = "running"
-	item.synced = false
+	item.Status.Status = "running"
+	item.Synced = false
 	t.tasks[taskId] = item
 }
 
 // GetStatus implements TaskStore.
-func (t *taskStore) GetStatus(taskId string) TaskStatus {
+func (t *taskStore) GetStatus(taskId string) model.TaskStatus {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.tasks[taskId].status
+	return t.tasks[taskId].Status
 }
 
 // UpdateStatus implements TaskStore.
-func (t *taskStore) UpdateStatus(taskId string, status TaskStatus) {
+func (t *taskStore) UpdateStatus(taskId string, status model.TaskStatus) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	fmt.Println("update task :", taskId, "---", status.Status)
@@ -173,7 +181,7 @@ func (t *taskStore) UpdateStatus(taskId string, status TaskStatus) {
 	if !ok {
 		return
 	}
-	item.status = status
-	item.synced = false
+	item.Status = status
+	item.Synced = false
 	t.tasks[taskId] = item
 }

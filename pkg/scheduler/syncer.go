@@ -2,20 +2,23 @@ package scheduler
 
 import (
 	"time"
+
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
+	"github.com/go-primus/doma/pkg/scheduler/internal/store"
 )
 
 // syncer 用于任务结果和状态同步
 
 type syncer struct {
-	sync <-chan *SyncMessage
+	sync <-chan *model.SyncMessage
 
 	//
 	done   chan struct{}
 	notify chan struct{}
 
 	//
-	store    TaskStore
-	syncFunc func(status SyncMessage) error
+	store    store.TaskStore
+	syncFunc func(status model.SyncMessage) error
 }
 
 type syncerParams struct {
@@ -49,10 +52,10 @@ func (s *syncer) syncing() {
 		case <-s.done:
 			return
 		case syncmsg := <-s.sync:
-			s.store.UpdateStatus(syncmsg.task.ID, syncmsg.status)
+			s.store.UpdateStatus(syncmsg.Task.ID, syncmsg.Status)
 
-			if syncmsg.status.Status == TaskState_Running {
-				s.store.UpdateProgress(syncmsg.task.ID, syncmsg.progress)
+			if syncmsg.Status.Status == model.TaskState_Running {
+				s.store.UpdateProgress(syncmsg.Task.ID, syncmsg.Progress)
 			}
 			s.notify <- struct{}{}
 
@@ -81,13 +84,13 @@ func (s *syncer) syncinternal() {
 
 	tasks := s.store.ListSyncTasks()
 	for _, task := range tasks {
-		err := s.syncFunc(SyncMessage{
-			task:     task.msg,
-			status:   task.status,
-			progress: task.progress,
+		err := s.syncFunc(model.SyncMessage{
+			Task:     task.Msg,
+			Status:   task.Status,
+			Progress: task.Progress,
 		})
 		if err == nil {
-			s.store.MarkSynced(task.msg.ID)
+			s.store.MarkSynced(task.Msg.ID)
 		}
 	}
 }

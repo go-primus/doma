@@ -2,9 +2,8 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
-
-	"github.com/sirupsen/logrus"
 )
 
 var sm ServiceManager
@@ -58,7 +57,7 @@ func (s *ServiceRegistry) RegisterService(srv Service) {
 }
 
 func (s *ServiceRegistry) Init(ctx context.Context) error {
-	logrus.Info("init services...")
+	slog.Info("init services...")
 	for _, svc := range s.services {
 		err := svc.Init(ctx)
 		if err != nil {
@@ -69,7 +68,7 @@ func (s *ServiceRegistry) Init(ctx context.Context) error {
 }
 
 func (s *ServiceRegistry) Config(ctx context.Context) error {
-	logrus.Info("config services...")
+	slog.Info("config services...")
 	for _, svc := range s.services {
 		err := svc.Config(ctx, func() error { return nil })
 		if err != nil {
@@ -80,7 +79,7 @@ func (s *ServiceRegistry) Config(ctx context.Context) error {
 }
 
 func (s *ServiceRegistry) Start(ctx context.Context) error {
-	logrus.Info("start services...")
+	slog.Info("start services...")
 	for _, svc := range s.services {
 		err := svc.Start(ctx)
 		if err != nil {
@@ -103,15 +102,14 @@ func (s *ServiceRegistry) GetServiceState(name string) (ServiceState, error) {
 func (s *ServiceRegistry) DumpService(name string) {
 	srv := s.GetSystemService(name)
 	status, _ := srv.Status()
-	logrus.Info(srv.ID(), " : ", srv.Name(), "\t", status, "\t--> ", reflect.TypeOf(srv))
-	// fmt.Println("----", srv.ID(), ":", srv.Name(), "----", status, "---", reflect.TypeOf(srv))
+	slog.Info("service info:", "srvid", srv.ID(), "name", srv.Name(), "status", status, "type", reflect.TypeOf(srv))
 
 }
 
 func (s *ServiceRegistry) DumpServices() {
-	logrus.Info("---dump services------------------------")
+	slog.Info("---dump services------------------------")
 	for _, svc := range s.services {
 		s.DumpService(svc.Name())
 	}
-	logrus.Info("---------------------------------------")
+	slog.Info("---------------------------------------")
 }

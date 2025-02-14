@@ -1,4 +1,4 @@
-package scheduler
+package model
 
 import "time"
 
@@ -9,19 +9,10 @@ type ITask interface {
 
 ////////////////////
 
-type TaskMessage struct {
-	ID      string
-	Type    string
-	Payload any
-}
-
 type TaskObject struct {
 }
 
 type TaskResource struct {
-}
-
-type TaskInfo struct {
 }
 
 type Task struct {
@@ -35,21 +26,6 @@ type TaskCommand struct {
 	Command string
 }
 
-// [Pending] -> [Running] <-> [Paused]
-//     |           |
-//     v           v
-//  [Completed] [Failed]
-
-type TaskState string
-
-const (
-	TaskState_Pending   TaskState = "pending"
-	TaskState_Running   TaskState = "running"
-	TaskState_Paused    TaskState = "paused"
-	TaskState_Completed TaskState = "completed"
-	TaskState_Failed    TaskState = "failed"
-)
-
 // ////////////////////
 type TaskStatus struct {
 	Status TaskState // pending、running、completed、failed
@@ -60,9 +36,9 @@ type TaskStatus struct {
 
 // /////////////////////////
 type SyncMessage struct {
-	task     TaskMessage
-	status   TaskStatus
-	progress TaskProgress
+	Task     TaskMessage
+	Status   TaskStatus
+	Progress TaskProgress
 }
 
 // /////////

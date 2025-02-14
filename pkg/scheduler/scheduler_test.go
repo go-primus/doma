@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
+	"github.com/go-primus/doma/pkg/scheduler/internal/store"
 	"github.com/nats-io/nats.go"
 )
 
@@ -17,10 +19,8 @@ func TestScheduler(t *testing.T) {
 		return
 	}
 	sched := scheduler{
-		nc: conn,
-		store: &taskStore{
-			tasks: make(map[string]*TaskItem),
-		},
+		nc:    conn,
+		store: store.NewTaskStore(),
 	}
 
 	// worker := NewProcessor()
@@ -28,7 +28,7 @@ func TestScheduler(t *testing.T) {
 	// worker.Start()
 
 	sched.Start()
-	id, err := sched.SubmitTask(Task{
+	id, err := sched.SubmitTask(model.Task{
 		Type:    "move",
 		Payload: "",
 	})

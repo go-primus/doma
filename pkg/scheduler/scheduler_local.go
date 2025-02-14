@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
+	"github.com/go-primus/doma/pkg/scheduler/internal/store"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 )
@@ -14,11 +16,11 @@ type scheduler struct {
 	nc *nats.Conn
 
 	queue SchedulePolicy
-	store TaskStore
+	store store.TaskStore
 }
 
 // Add implements Scheduler.
-func (s *scheduler) Add(task Task) error {
+func (s *scheduler) Add(task model.Task) error {
 	panic("unimplemented")
 }
 
@@ -48,20 +50,20 @@ func (s *scheduler) ResumeTask(id string) error {
 }
 
 // GetTask implements Scheduler.
-func (s *scheduler) GetTask(id string) TaskStatus {
+func (s *scheduler) GetTask(id string) model.TaskStatus {
 	status := s.store.GetStatus(id)
 	return status
 }
 
 func (s *scheduler) Start() error {
 	s.nc.Subscribe("tasks.updates", func(msg *nats.Msg) {
-		var status TaskStatus
+		var status model.TaskStatus
 		json.Unmarshal(msg.Data, &status)
 	})
 
 	s.nc.Subscribe("tasks.command", func(msg *nats.Msg) {
 		//
-		var cmd TaskCommand
+		var cmd model.TaskCommand
 		json.Unmarshal(msg.Data, &cmd)
 
 		switch cmd.Command {
@@ -85,7 +87,7 @@ func (s *scheduler) schedule() {
 	}
 }
 
-func (s *scheduler) SubmitTask(task Task) (string, error) {
+func (s *scheduler) SubmitTask(task model.Task) (string, error) {
 	task.ID = uuid.NewString()
 	// initialStatus := TaskStatus{
 	// 	Status: "pending",
@@ -101,7 +103,7 @@ func (s *scheduler) SubmitTask(task Task) (string, error) {
 func (s *scheduler) work() {
 
 	s.nc.Subscribe("tasks.queue", func(msg *nats.Msg) {
-		var task Task
+		var task model.Task
 		json.Unmarshal(msg.Data, &task)
 		//
 
@@ -115,7 +117,7 @@ func (s *scheduler) work() {
 	})
 }
 
-func (s *scheduler) updateStatus(status TaskStatus) {
+func (s *scheduler) updateStatus(status model.TaskStatus) {
 	data, _ := json.Marshal(status)
 	s.nc.Publish("tasks.updates", data)
 }

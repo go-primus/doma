@@ -1,7 +1,9 @@
 package scheduler
 
+import "github.com/go-primus/doma/pkg/scheduler/internal/model"
+
 type Client interface {
-	SubmitTask() (TaskInfo, error)
+	SubmitTask() (model.TaskInfo, error)
 	//
 	DeleteTask()
 	//

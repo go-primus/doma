@@ -7,12 +7,14 @@ import (
 
 	"github.com/go-primus/doma/pkg/eventbus"
 	"github.com/go-primus/doma/pkg/scheduler/internal/cancelation"
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
+	"github.com/go-primus/doma/pkg/scheduler/internal/store"
 )
 
 type worker struct {
 	bus eventbus.EventBus
 
-	dispatch chan<- TaskMessage // dispatch queue
+	dispatch chan<- model.TaskMessage // dispatch queue
 
 	//
 	processor  *processor
@@ -20,23 +22,20 @@ type worker struct {
 	subscriber *subscriber
 
 	//
-	cancelCh chan<- TaskCommand
+	cancelCh chan<- model.TaskCommand
 
 	//
-	finished chan<- TaskMessage
+	finished chan<- model.TaskMessage
 
 	//
-	store TaskStore
+	store store.TaskStore
 }
 
 func NewWorker(bus eventbus.EventBus, handler Handler) *worker {
 
-	store := &taskStore{
-		tasks: make(map[string]*TaskItem),
-	}
-
-	dispatch := make(chan TaskMessage, 10)
-	syncCh := make(chan *SyncMessage)
+	store := store.NewTaskStore()
+	dispatch := make(chan model.TaskMessage, 10)
+	syncCh := make(chan *model.SyncMessage)
 
 	cancels := cancelation.NewCancelations()
 	// processor
@@ -50,12 +49,12 @@ func NewWorker(bus eventbus.EventBus, handler Handler) *worker {
 	syncer.sync = syncCh
 	syncer.store = store
 
-	syncer.syncFunc = func(syncmsg SyncMessage) error {
-		slog.Info("sync task", "task", syncmsg.task.ID, "status", syncmsg.status.Status, "---", syncmsg.progress.Progress)
+	syncer.syncFunc = func(syncmsg model.SyncMessage) error {
+		slog.Info("sync task", "task", syncmsg.Task.ID, "status", syncmsg.Status.Status, "---", syncmsg.Progress.Progress)
 		return nil
 	}
 
-	cancelCh := make(chan TaskCommand)
+	cancelCh := make(chan model.TaskCommand)
 
 	subscriber := newSubscriber(subscriberParams{
 		cancel:       cancelCh,
@@ -83,7 +82,7 @@ func (s *worker) Start() {
 
 func (s *worker) start() {
 	s.bus.Subscribe("tasks.queues", func(msg *eventbus.Msg) {
-		var taskMsg TaskMessage
+		var taskMsg model.TaskMessage
 		json.Unmarshal(msg.Data, &taskMsg)
 
 		fmt.Println("handle task queues msg")
@@ -101,16 +100,19 @@ func (s *worker) start() {
 	})
 
 	s.bus.Subscribe("tasks.commands", func(msg *eventbus.Msg) {
-		var taskCommand TaskCommand
+		var taskCommand model.TaskCommand
 		json.Unmarshal(msg.Data, &taskCommand)
 
 		if taskCommand.Command == "pause" || taskCommand.Command == "cancel" {
 			s.cancelCh <- taskCommand
+			s.store.UpdateStatus(taskCommand.ID, model.TaskStatus{
+				Status: model.TaskState_Paused,
+			})
 		} else if taskCommand.Command == "resume" {
 			// 获取任务，且状态为暂停
 			// s.dispatch <- taskMsg
 			task := s.store.GetTask(taskCommand.ID)
-			s.dispatch <- task.msg
+			s.dispatch <- task.Msg
 
 		}
 

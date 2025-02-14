@@ -1,17 +1,20 @@
 package scheduler
 
-import "github.com/go-primus/doma/pkg/scheduler/internal/cancelation"
+import (
+	"github.com/go-primus/doma/pkg/scheduler/internal/cancelation"
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
+)
 
 type subscriber struct {
 	done chan struct{}
 
-	cancel <-chan TaskCommand
+	cancel <-chan model.TaskCommand
 
 	cancelations *cancelation.Cancelations
 }
 
 type subscriberParams struct {
-	cancel       <-chan TaskCommand
+	cancel       <-chan model.TaskCommand
 	cancelations *cancelation.Cancelations
 }
 

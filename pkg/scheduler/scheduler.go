@@ -1,12 +1,14 @@
 package scheduler
 
+import "github.com/go-primus/doma/pkg/scheduler/internal/model"
+
 type Scheduler interface {
 	Start() error
 	Stop() error
 
-	Add(task Task) error
+	Add(task model.Task) error
 
-	SubmitTask(task Task) (string, error)
+	SubmitTask(task model.Task) (string, error)
 
 	// 暂停、取消、重试任务
 	PauseTask(id string) error
@@ -15,12 +17,12 @@ type Scheduler interface {
 	RetryTask(id string) error
 
 	//
-	GetTask(id string) TaskStatus
+	GetTask(id string) model.TaskStatus
 }
 
 type SchedulePolicy interface {
-	Push(task Task) (int, error)
-	Pop() Task
+	Push(task model.Task) (int, error)
+	Pop() model.Task
 	Len() int
 }
 

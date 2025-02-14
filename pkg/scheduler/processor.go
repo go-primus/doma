@@ -6,6 +6,9 @@ import (
 	"log/slog"
 
 	"github.com/go-primus/doma/pkg/scheduler/internal/cancelation"
+	"github.com/go-primus/doma/pkg/scheduler/internal/errors"
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
+	"github.com/go-primus/doma/pkg/scheduler/internal/store"
 )
 
 type Processor interface {
@@ -16,11 +19,11 @@ type Processor interface {
 var _ Processor = (*processor)(nil)
 
 type processor struct {
-	dispatch <-chan TaskMessage
+	dispatch <-chan model.TaskMessage
 
 	handler Handler
 
-	store TaskStore
+	store store.TaskStore
 
 	sema chan struct{}
 
@@ -30,11 +33,11 @@ type processor struct {
 	cancelations *cancelation.Cancelations
 
 	//
-	sync chan<- *SyncMessage // report sync message ,task status
+	sync chan<- *model.SyncMessage // report sync message ,task status
 	// finished chan<- TaskMessage
 }
 
-func NewProcessor(dispatch <-chan TaskMessage, cancelations *cancelation.Cancelations) *processor {
+func NewProcessor(dispatch <-chan model.TaskMessage, cancelations *cancelation.Cancelations) *processor {
 	return &processor{
 		dispatch:     dispatch,
 		done:         make(chan struct{}),
@@ -91,7 +94,7 @@ func (p *processor) exec() {
 
 }
 
-func (p *processor) execute(msg TaskMessage) {
+func (p *processor) execute(msg model.TaskMessage) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelations.Add(msg.ID, cancel)
@@ -116,7 +119,7 @@ func (p *processor) execute(msg TaskMessage) {
 
 	resCh := make(chan error, 1)
 	go func() {
-		task := &Task{
+		task := &model.Task{
 			ID:      msg.ID,
 			Type:    msg.Type,
 			Payload: msg.Payload,
@@ -137,53 +140,60 @@ func (p *processor) execute(msg TaskMessage) {
 	}
 }
 
-func (p *processor) perform(ctx context.Context, task *Task) error {
+func (p *processor) perform(ctx context.Context, task *model.Task) (err error) {
 
 	defer func() {
 		if x := recover(); x != nil {
 			errMsg := fmt.Sprintf("panic: %v", x)
 			slog.Error(errMsg)
+			err = &errors.PanicError{
+				ErrMsg: errMsg,
+			}
 		}
 	}()
 	return p.handler.ProcessTask(ctx, task)
 }
 
-func (p *processor) handleFailedMessage(msg TaskMessage, err error) {
+func (p *processor) handleFailedMessage(msg model.TaskMessage, err error) {
 
-	taskStatus := TaskStatus{}
-	taskStatus.Status = TaskState_Failed
+	taskStatus := model.TaskStatus{}
+
+	if errors.Is(err, context.Canceled) {
+		return
+	}
+	taskStatus.Status = model.TaskState_Failed
 	taskStatus.Err = err
 
-	p.sync <- &SyncMessage{
-		task:   msg,
-		status: taskStatus,
+	p.sync <- &model.SyncMessage{
+		Task:   msg,
+		Status: taskStatus,
 	}
 }
 
-func (p *processor) handleSucceededMessage(msg TaskMessage) {
+func (p *processor) handleSucceededMessage(msg model.TaskMessage) {
 
-	taskStatus := TaskStatus{}
-	taskStatus.Status = TaskState_Completed
+	taskStatus := model.TaskStatus{}
+	taskStatus.Status = model.TaskState_Completed
 
-	p.sync <- &SyncMessage{
-		task:   msg,
-		status: taskStatus,
+	p.sync <- &model.SyncMessage{
+		Task:   msg,
+		Status: taskStatus,
 	}
 
 }
 
-func (p *processor) handleProgressMessage(msg TaskMessage, progress int32) {
+func (p *processor) handleProgressMessage(msg model.TaskMessage, progress int32) {
 
-	taskStatus := TaskStatus{}
-	taskStatus.Status = TaskState_Running
-	taskProgress := TaskProgress{
+	taskStatus := model.TaskStatus{}
+	taskStatus.Status = model.TaskState_Running
+	taskProgress := model.TaskProgress{
 		Progress: int(progress),
 	}
 
-	p.sync <- &SyncMessage{
-		task:     msg,
-		status:   taskStatus,
-		progress: taskProgress,
+	p.sync <- &model.SyncMessage{
+		Task:     msg,
+		Status:   taskStatus,
+		Progress: taskProgress,
 	}
 }
 

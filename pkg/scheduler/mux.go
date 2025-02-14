@@ -6,15 +6,17 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
 )
 
 type Handler interface {
-	ProcessTask(context.Context, *Task) error
+	ProcessTask(context.Context, *model.Task) error
 }
 
-type HandlerFunc func(context.Context, *Task) error
+type HandlerFunc func(context.Context, *model.Task) error
 
-func (fn HandlerFunc) ProcessTask(ctx context.Context, task *Task) error {
+func (fn HandlerFunc) ProcessTask(ctx context.Context, task *model.Task) error {
 	return fn(ctx, task)
 }
 
@@ -69,7 +71,7 @@ func (mux *TaskMux) Use(mws ...MiddlewareFunc) {
 	mux.mws = append(mux.mws, mws...)
 }
 
-func (mux *TaskMux) ProcessTask(ctx context.Context, task *Task) error {
+func (mux *TaskMux) ProcessTask(ctx context.Context, task *model.Task) error {
 
 	h, pattern := mux.Handler(task)
 	if pattern == "" {
@@ -86,7 +88,7 @@ func (mux *TaskMux) ProcessTask(ctx context.Context, task *Task) error {
 	return nil
 }
 
-func (mux *TaskMux) Handler(t *Task) (h Handler, pattern string) {
+func (mux *TaskMux) Handler(t *model.Task) (h Handler, pattern string) {
 	mux.mu.RLock()
 	defer mux.mu.RUnlock()
 
@@ -160,7 +162,7 @@ func (mux *TaskMux) HandleFunc(pattern string, handler HandlerFunc) {
 
 /////
 
-func NotFound(ctx context.Context, task *Task) error {
+func NotFound(ctx context.Context, task *model.Task) error {
 	return fmt.Errorf("handler not found for task %q", task.Type)
 }
 

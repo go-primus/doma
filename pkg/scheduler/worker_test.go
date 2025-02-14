@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/go-primus/doma/pkg/eventbus"
+	"github.com/go-primus/doma/pkg/scheduler/internal/model"
 	"github.com/google/uuid"
 )
 
-func DemoFunc(ctx TaskContext, t *Task) error {
+func DemoFunc(ctx TaskContext, t *model.Task) error {
 
 	// load check point
 	//
@@ -33,6 +34,7 @@ func DemoFunc(ctx TaskContext, t *Task) error {
 			time.Sleep(time.Second / 2)
 		}
 	}
+	// panic("crahs")
 
 	return nil
 }
@@ -45,7 +47,7 @@ func TestWorker(t *testing.T) {
 	}
 
 	mux := NewTaskMux("worker")
-	mux.HandleFunc("demo", func(ctx context.Context, t *Task) error {
+	mux.HandleFunc("demo", func(ctx context.Context, t *model.Task) error {
 
 		dctx, ok := ctx.(TaskContext)
 		if !ok {
@@ -63,7 +65,7 @@ func TestWorker(t *testing.T) {
 
 	fmt.Println("work started")
 
-	task := TaskMessage{}
+	task := model.TaskMessage{}
 	task.ID = uuid.NewString()
 	task.Type = "demo"
 	bus.Publish("tasks.queues", task)
@@ -73,15 +75,15 @@ func TestWorker(t *testing.T) {
 	// bus.Publish("tasks.queues", task2)
 	time.Sleep(time.Second * 2)
 	taskitem := worker.store.GetTask(task.ID)
-	fmt.Println("---xxxxxxxxxx-----task status:", taskitem.msg.ID, "----", taskitem.status.Status, "----", taskitem.progress.Progress)
+	fmt.Println("---xxxxxxxxxx-----task status:", taskitem.Msg.ID, "----", taskitem.Status.Status, "----", taskitem.Progress.Progress)
 
-	bus.Publish("tasks.commands", TaskCommand{
+	bus.Publish("tasks.commands", model.TaskCommand{
 		ID:      task.ID,
 		Command: "pause",
 	})
 
-	time.Sleep(time.Second * 2)
-	bus.Publish("tasks.commands", TaskCommand{
+	time.Sleep(time.Second * 5)
+	bus.Publish("tasks.commands", model.TaskCommand{
 		ID:      task.ID,
 		Command: "resume",
 	})
