@@ -1,10 +1,11 @@
-package scheduler
+package worker
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 
+	"github.com/go-primus/doma/pkg/scheduler/core"
 	"github.com/go-primus/doma/pkg/scheduler/internal/cancelation"
 	"github.com/go-primus/doma/pkg/scheduler/internal/errors"
 	"github.com/go-primus/doma/pkg/scheduler/internal/model"
@@ -37,15 +38,31 @@ type processor struct {
 	// finished chan<- TaskMessage
 }
 
-func NewProcessor(dispatch <-chan model.TaskMessage, cancelations *cancelation.Cancelations) *processor {
-	return &processor{
-		dispatch:     dispatch,
+type processorParams struct {
+	dispatch     <-chan model.TaskMessage
+	cancelations *cancelation.Cancelations
+	sync         chan<- *model.SyncMessage
+	handler      Handler
+	store        store.TaskStore
+}
+
+func newProcessor(params processorParams) *processor {
+	p := &processor{
+		dispatch:     params.dispatch,
 		done:         make(chan struct{}),
 		quit:         make(chan struct{}),
 		sema:         make(chan struct{}),
 		handler:      NotFoundHandler(),
-		cancelations: cancelations,
+		cancelations: params.cancelations,
+		//
+		sync:  params.sync,
+		store: params.store,
 	}
+
+	if params.handler != nil {
+		p.handler = params.handler
+	}
+	return p
 }
 
 // Start implements Processor.
@@ -115,14 +132,14 @@ func (p *processor) execute(msg model.TaskMessage) {
 	resCh := make(chan error, 1)
 	go func() {
 
-		taskCtx := NewContext(ctx, msg,
-			WithProgressFunc(func(progress int32) {
+		taskCtx := core.NewContext(ctx, msg,
+			core.WithProgressFunc(func(progress int32) {
 				p.handleProgressMessage(msg, progress)
 			}),
-			WithSaveCheckPointFunc(func(checkPoint any) {
+			core.WithSaveCheckPointFunc(func(checkPoint any) {
 				p.saveCheckPoint(msg.ID, checkPoint)
 			}),
-			WithLoadCheckPointFunc(func() any {
+			core.WithLoadCheckPointFunc(func() any {
 				return p.loadCheckPoint(msg.ID)
 			}),
 		)
@@ -214,6 +231,5 @@ func (p *processor) saveCheckPoint(taskId string, checkpoint any) {
 }
 
 func (p *processor) loadCheckPoint(taskId string) any {
-
 	return p.store.LoadCheckPoint(taskId)
 }

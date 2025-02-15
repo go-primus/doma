@@ -1,4 +1,4 @@
-package scheduler
+package worker
 
 import (
 	"github.com/go-primus/doma/pkg/scheduler/internal/cancelation"

@@ -1,4 +1,4 @@
-package scheduler
+package worker
 
 import (
 	"context"
@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/go-primus/doma/pkg/eventbus"
+	"github.com/go-primus/doma/pkg/scheduler/core"
 	"github.com/go-primus/doma/pkg/scheduler/internal/model"
 	"github.com/google/uuid"
 )
 
-func DemoFunc(ctx TaskContext, t *model.Task) error {
+func DemoFunc(ctx core.TaskContext, t *model.Task) error {
 
 	// load check point
 	//
@@ -49,7 +50,7 @@ func TestWorker(t *testing.T) {
 	mux := NewTaskMux("worker")
 	mux.HandleFunc("demo", func(ctx context.Context, t *model.Task) error {
 
-		dctx, ok := ctx.(TaskContext)
+		dctx, ok := ctx.(core.TaskContext)
 		if !ok {
 			return fmt.Errorf("not context")
 		}

@@ -1,4 +1,4 @@
-package scheduler
+package worker
 
 import (
 	"time"
@@ -22,12 +22,16 @@ type syncer struct {
 }
 
 type syncerParams struct {
+	sync  <-chan *model.SyncMessage
+	store store.TaskStore
 }
 
-func newSyncer() *syncer {
+func newSyncer(params syncerParams) *syncer {
 	return &syncer{
 		done:   make(chan struct{}),
 		notify: make(chan struct{}),
+		sync:   params.sync,
+		store:  params.store,
 	}
 }
 

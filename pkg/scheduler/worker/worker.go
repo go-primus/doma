@@ -1,4 +1,4 @@
-package scheduler
+package worker
 
 import (
 	"encoding/json"
@@ -34,27 +34,33 @@ type worker struct {
 func NewWorker(bus eventbus.EventBus, handler Handler) *worker {
 
 	store := store.NewTaskStore()
+
 	dispatch := make(chan model.TaskMessage, 10)
 	syncCh := make(chan *model.SyncMessage)
 
+	cancelCh := make(chan model.TaskCommand)
 	cancels := cancelation.NewCancelations()
+
 	// processor
-	processor := NewProcessor(dispatch, cancels)
-	processor.sync = syncCh
-	processor.handler = handler
-	processor.store = store
+	processorParams := processorParams{
+		dispatch:     dispatch,
+		cancelations: cancels,
+		sync:         syncCh,
+		handler:      handler,
+		store:        store,
+	}
+	processor := newProcessor(processorParams)
 
 	// syncer
-	syncer := newSyncer()
-	syncer.sync = syncCh
-	syncer.store = store
-
+	syncerParams := syncerParams{
+		sync:  syncCh,
+		store: store,
+	}
+	syncer := newSyncer(syncerParams)
 	syncer.syncFunc = func(syncmsg model.SyncMessage) error {
 		slog.Info("sync task", "task", syncmsg.Task.ID, "status", syncmsg.Status.Status, "---", syncmsg.Progress.Progress)
 		return nil
 	}
-
-	cancelCh := make(chan model.TaskCommand)
 
 	subscriber := newSubscriber(subscriberParams{
 		cancel:       cancelCh,
