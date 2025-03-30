@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-primus/doma/runtime/core"
+	"github.com/go-primus/doma/runtime/eventstore"
+	"github.com/go-primus/doma/runtime/registry"
 	"github.com/google/uuid"
-	"github.com/primus/primus/doma"
 )
 
-type AggregateStore struct {
-	store doma.EventStore
+type aggregateStore struct {
+	store eventstore.EventStore
 }
 
 var (
@@ -22,20 +24,20 @@ var (
 	ErrMismatchedEventType = errors.New("mismatched event type and aggregate type")
 )
 
-func NewAggregateStore(store doma.EventStore) (*AggregateStore, error) {
+func NewAggregateStore(store eventstore.EventStore) (*aggregateStore, error) {
 
 	if store == nil {
 		return nil, ErrInvalidEventStore
 	}
 
-	return &AggregateStore{
+	return &aggregateStore{
 		store: store,
 	}, nil
 }
 
-func (r *AggregateStore) Load(ctx context.Context, aggregateType doma.AggregateType, id uuid.UUID) (doma.Aggregate, error) {
+func (r *aggregateStore) Load(ctx context.Context, aggregateType core.AggregateType, id uuid.UUID) (core.Aggregate, error) {
 
-	agg, err := doma.CreateAggregate(aggregateType, id)
+	agg, err := registry.CreateAggregate(aggregateType, id)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +48,7 @@ func (r *AggregateStore) Load(ctx context.Context, aggregateType doma.AggregateT
 	}
 
 	events, err := r.store.Load(ctx, a.EntityID())
-	if err != nil && !errors.Is(err, doma.ErrAggregateNotFound) {
+	if err != nil && !errors.Is(err, registry.ErrAggregateNotFound) {
 		return nil, err
 	}
 
@@ -57,7 +59,7 @@ func (r *AggregateStore) Load(ctx context.Context, aggregateType doma.AggregateT
 	return agg, nil
 }
 
-func (r *AggregateStore) Save(ctx context.Context, agg doma.Aggregate) error {
+func (r *aggregateStore) Save(ctx context.Context, agg core.Aggregate) error {
 	a, ok := agg.(VersionedAggregate)
 	if !ok {
 		return ErrAggregateNotVersioned
@@ -79,7 +81,7 @@ func (r *AggregateStore) Save(ctx context.Context, agg doma.Aggregate) error {
 
 }
 
-func (r *AggregateStore) applyEvents(ctx context.Context, a VersionedAggregate, events []doma.Event) error {
+func (r *aggregateStore) applyEvents(ctx context.Context, a VersionedAggregate, events []core.Event) error {
 
 	for _, event := range events {
 		if event.AggregateType() != a.AggregateType() {

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-primus/doma/runtime/aggregatestore"
+	"github.com/go-primus/doma/runtime/core"
+	"github.com/go-primus/doma/runtime/eventstore"
+	memoryEventStore "github.com/go-primus/doma/runtime/eventstore/memory"
+	"github.com/go-primus/doma/runtime/registry"
 	"github.com/google/uuid"
-	"github.com/primus/primus/doma"
-	"github.com/primus/primus/doma/aggregatestore"
-	memoryEventStore "github.com/primus/primus/doma/eventstore/memory"
 )
 
 type DomaDemoService interface {
@@ -16,11 +18,11 @@ type DomaDemoService interface {
 }
 
 type demoDemoServiceImpl struct {
-	t     doma.AggregateType
-	store doma.AggregateStore
+	t     core.AggregateType
+	store aggregatestore.AggregateStore
 }
 
-func (d *demoDemoServiceImpl) handleCommand(ctx context.Context, cmd doma.Command) error {
+func (d *demoDemoServiceImpl) handleCommand(ctx context.Context, cmd core.Command) error {
 	//
 	a, err := d.store.Load(ctx, d.t, cmd.AggregateID())
 	if err != nil {
@@ -43,8 +45,8 @@ func (d *demoDemoServiceImpl) CreateDemo(uuidx uuid.UUID, name string) error {
 	})
 }
 
-func NewDemoService(estore doma.EventStore) DomaDemoService {
-	var store doma.AggregateStore
+func NewDemoService(estore eventstore.EventStore) DomaDemoService {
+	var store aggregatestore.AggregateStore
 	store, _ = aggregatestore.NewAggregateStore(estore)
 	return &demoDemoServiceImpl{
 		t:     TestAggregateRegisterType,
@@ -56,7 +58,7 @@ func TestDoma(t *testing.T) {
 
 	// 注册聚合
 
-	doma.RegisterAggregate(func(u uuid.UUID) doma.Aggregate {
+	registry.RegisterAggregate(func(u uuid.UUID) core.Aggregate {
 		return NewInvitationAggregate(u)
 	})
 
@@ -74,7 +76,15 @@ func TestDoma(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	fmt.Println("------------")
 
+	err = s.CreateDemo(id, "name")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	fmt.Println("------------")
 	err = s.CreateDemo(id, "name")
 	if err != nil {
 		t.Error(err)

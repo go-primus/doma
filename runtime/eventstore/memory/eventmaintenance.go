@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-primus/doma/runtime/core"
+	"github.com/go-primus/doma/runtime/eventstore"
+	"github.com/go-primus/doma/runtime/registry"
 	"github.com/google/uuid"
-	eh "github.com/primus/primus/doma"
 )
 
 // Replace implements the Replace method of the eventhorizon.EventStore interface.
-func (s *EventStore) Replace(ctx context.Context, event eh.Event) error {
+func (s *EventStore) Replace(ctx context.Context, event core.Event) error {
 	id := event.AggregateID()
 
 	s.dbMu.RLock()
@@ -18,7 +20,7 @@ func (s *EventStore) Replace(ctx context.Context, event eh.Event) error {
 	if !ok {
 		s.dbMu.RUnlock()
 
-		return eh.ErrAggregateNotFound
+		return registry.ErrAggregateNotFound
 	}
 	s.dbMu.RUnlock()
 
@@ -40,7 +42,7 @@ func (s *EventStore) Replace(ctx context.Context, event eh.Event) error {
 	}
 
 	if idx == -1 {
-		return eh.ErrEventNotFound
+		return eventstore.ErrEventNotFound
 	}
 
 	// Replace event.
@@ -53,28 +55,28 @@ func (s *EventStore) Replace(ctx context.Context, event eh.Event) error {
 }
 
 // RenameEvent implements the RenameEvent method of the eventhorizon.EventStore interface.
-func (s *EventStore) RenameEvent(ctx context.Context, from, to eh.EventType) error {
+func (s *EventStore) RenameEvent(ctx context.Context, from, to core.EventType) error {
 	s.dbMu.Lock()
 	defer s.dbMu.Unlock()
 
 	updated := map[uuid.UUID]aggregateRecord{}
 
 	for id, aggregate := range s.db {
-		events := make([]eh.Event, len(aggregate.Events))
+		events := make([]core.Event, len(aggregate.Events))
 
 		for i, e := range aggregate.Events {
 			if e.EventType() == from {
 				// Rename any matching event by duplicating.
-				events[i] = eh.NewEvent(
+				events[i] = core.NewEvent(
 					to,
 					e.Data(),
 					e.Timestamp(),
-					eh.ForAggregate(
+					core.ForAggregate(
 						e.AggregateType(),
 						e.AggregateID(),
 						e.Version(),
 					),
-					eh.WithMetadata(e.Metadata()),
+					core.WithMetadata(e.Metadata()),
 				)
 			}
 		}

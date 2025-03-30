@@ -1,10 +1,11 @@
-package doma
+package registry
 
 import (
 	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/go-primus/doma/runtime/core"
 	"github.com/google/uuid"
 )
 
@@ -21,7 +22,7 @@ var (
 // An example would be:
 //
 //	RegisterAggregate(func(id UUID) Aggregate { return &MyAggregate{id} })
-func RegisterAggregate(factory func(uuid.UUID) Aggregate) {
+func RegisterAggregate(factory func(uuid.UUID) core.Aggregate) {
 	// Check that the created aggregate matches the registered type.
 	// TODO: Explore the use of reflect/gob for creating concrete types without
 	// a factory func.
@@ -31,7 +32,7 @@ func RegisterAggregate(factory func(uuid.UUID) Aggregate) {
 	}
 
 	aggregateType := aggregate.AggregateType()
-	if aggregateType == AggregateType("") {
+	if aggregateType == core.AggregateType("") {
 		panic("eventhorizon: attempt to register empty aggregate type")
 	}
 
@@ -47,7 +48,7 @@ func RegisterAggregate(factory func(uuid.UUID) Aggregate) {
 
 // CreateAggregate creates an aggregate of a type with an ID using the factory
 // registered with RegisterAggregate.
-func CreateAggregate(aggregateType AggregateType, id uuid.UUID) (Aggregate, error) {
+func CreateAggregate(aggregateType core.AggregateType, id uuid.UUID) (core.Aggregate, error) {
 	aggregatesMu.RLock()
 	defer aggregatesMu.RUnlock()
 
@@ -58,5 +59,5 @@ func CreateAggregate(aggregateType AggregateType, id uuid.UUID) (Aggregate, erro
 	return nil, ErrAggregateNotRegistered
 }
 
-var aggregates = make(map[AggregateType]func(uuid.UUID) Aggregate)
+var aggregates = make(map[core.AggregateType]func(uuid.UUID) core.Aggregate)
 var aggregatesMu sync.RWMutex

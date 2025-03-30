@@ -1,22 +1,23 @@
-package doma
+package eventstore
 
 import (
 	"context"
 	"errors"
 
+	"github.com/go-primus/doma/runtime/core"
 	"github.com/google/uuid"
 )
 
 // EventStore is an interface for an event sourcing event store.
 type EventStore interface {
 	// Save appends all events in the event stream to the store.
-	Save(ctx context.Context, events []Event, originalVersion int) error
+	Save(ctx context.Context, events []core.Event, originalVersion int) error
 
 	// Load loads all events for the aggregate id from the store.
-	Load(context.Context, uuid.UUID) ([]Event, error)
+	Load(context.Context, uuid.UUID) ([]core.Event, error)
 
 	// LoadFrom loads all events from version for the aggregate id from the store.
-	LoadFrom(ctx context.Context, id uuid.UUID, version int) ([]Event, error)
+	LoadFrom(ctx context.Context, id uuid.UUID, version int) ([]core.Event, error)
 
 	// Close closes the EventStore.
 	Close() error
@@ -24,8 +25,8 @@ type EventStore interface {
 
 // SnapshotStore is an interface for snapshot store.
 type SnapshotStore interface {
-	LoadSnapshot(ctx context.Context, id uuid.UUID) (*Snapshot, error)
-	SaveSnapshot(ctx context.Context, id uuid.UUID, snapshot Snapshot) error
+	LoadSnapshot(ctx context.Context, id uuid.UUID) (*core.Snapshot, error)
+	SaveSnapshot(ctx context.Context, id uuid.UUID, snapshot core.Snapshot) error
 }
 
 var (

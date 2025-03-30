@@ -1,4 +1,4 @@
-package doma
+package core
 
 type aggregateFactory struct {
 }

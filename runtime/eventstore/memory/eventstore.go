@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/go-primus/doma/runtime/core"
+	"github.com/go-primus/doma/runtime/eventstore"
+	"github.com/go-primus/doma/runtime/registry"
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
-
-	eh "github.com/primus/primus/doma"
 )
 
 // EventStore is an eventhorizon.EventStore where all events are stored in
@@ -38,7 +39,7 @@ func NewEventStore(options ...Option) (*EventStore, error) {
 type Option func(*EventStore) error
 
 // Save implements the Save method of the eventhorizon.EventStore interface.
-func (s *EventStore) Save(ctx context.Context, events []eh.Event, originalVersion int) error {
+func (s *EventStore) Save(ctx context.Context, events []core.Event, originalVersion int) error {
 	if err := s.save(ctx, events, originalVersion); err != nil {
 		return err
 	}
@@ -57,15 +58,15 @@ func (s *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 }
 
 // This method needs to be separate from the Save() method to not lock the mutex during publishing.
-func (s *EventStore) save(ctx context.Context, events []eh.Event, originalVersion int) error {
+func (s *EventStore) save(ctx context.Context, events []core.Event, originalVersion int) error {
 	s.dbMu.Lock()
 	defer s.dbMu.Unlock()
 
 	if len(events) == 0 {
-		return eh.ErrMissingEvents
+		return eventstore.ErrMissingEvents
 	}
 
-	dbEvents := make([]eh.Event, len(events))
+	dbEvents := make([]core.Event, len(events))
 	id := events[0].AggregateID()
 	at := events[0].AggregateType()
 
@@ -74,16 +75,16 @@ func (s *EventStore) save(ctx context.Context, events []eh.Event, originalVersio
 	for i, event := range events {
 		// Only accept events belonging to the same aggregate.
 		if event.AggregateID() != id {
-			return eh.ErrMismatchedEventAggregateIDs
+			return eventstore.ErrMismatchedEventAggregateIDs
 		}
 
 		if event.AggregateType() != at {
-			return eh.ErrMismatchedEventAggregateTypes
+			return eventstore.ErrMismatchedEventAggregateTypes
 		}
 
 		// Only accept events that apply to the correct aggregate version.
 		if event.Version() != originalVersion+i+1 {
-			return eh.ErrIncorrectEventVersion
+			return eventstore.ErrIncorrectEventVersion
 		}
 
 		// Create the event record with timestamp.
@@ -110,7 +111,7 @@ func (s *EventStore) save(ctx context.Context, events []eh.Event, originalVersio
 		// since loading the aggregate).
 		if aggregate, ok := s.db[id]; ok {
 			if aggregate.Version != originalVersion {
-				return eh.ErrEventConflictFromOtherSave
+				return eventstore.ErrEventConflictFromOtherSave
 			}
 
 			aggregate.Version += len(dbEvents)
@@ -124,21 +125,21 @@ func (s *EventStore) save(ctx context.Context, events []eh.Event, originalVersio
 }
 
 // Load implements the Load method of the eventhorizon.EventStore interface.
-func (s *EventStore) Load(ctx context.Context, id uuid.UUID) ([]eh.Event, error) {
+func (s *EventStore) Load(ctx context.Context, id uuid.UUID) ([]core.Event, error) {
 	return s.LoadFrom(ctx, id, 1)
 }
 
 // LoadFrom loads all events from version for the aggregate id from the store.
-func (s *EventStore) LoadFrom(ctx context.Context, id uuid.UUID, version int) ([]eh.Event, error) {
+func (s *EventStore) LoadFrom(ctx context.Context, id uuid.UUID, version int) ([]core.Event, error) {
 	s.dbMu.RLock()
 	defer s.dbMu.RUnlock()
 
 	aggregate, ok := s.db[id]
 	if !ok {
-		return nil, eh.ErrAggregateNotFound
+		return nil, registry.ErrAggregateNotFound
 	}
 
-	events := make([]eh.Event, len(aggregate.Events))
+	events := make([]core.Event, len(aggregate.Events))
 
 	for i, event := range aggregate.Events {
 		if event.Version() < version {
@@ -159,7 +160,7 @@ func (s *EventStore) LoadFrom(ctx context.Context, id uuid.UUID, version int) ([
 type aggregateRecord struct {
 	AggregateID uuid.UUID
 	Version     int
-	Events      []eh.Event
+	Events      []core.Event
 	// Snapshot    eh.Aggregate
 }
 
@@ -169,28 +170,28 @@ func (s *EventStore) Close() error {
 }
 
 // copyEvent duplicates an event.
-func copyEvent(ctx context.Context, event eh.Event) (eh.Event, error) {
-	var data eh.EventData
+func copyEvent(ctx context.Context, event core.Event) (core.Event, error) {
+	var data core.EventData
 
 	// Copy data if there is any.
 	if event.Data() != nil {
 		var err error
-		if data, err = eh.CreateEventData(event.EventType()); err != nil {
+		if data, err = core.CreateEventData(event.EventType()); err != nil {
 			return nil, fmt.Errorf("could not create event data: %w", err)
 		}
 
 		copier.Copy(data, event.Data())
 	}
 
-	return eh.NewEvent(
+	return core.NewEvent(
 		event.EventType(),
 		data,
 		event.Timestamp(),
-		eh.ForAggregate(
+		core.ForAggregate(
 			event.AggregateType(),
 			event.AggregateID(),
 			event.Version(),
 		),
-		eh.WithMetadata(event.Metadata()),
+		core.WithMetadata(event.Metadata()),
 	), nil
 }

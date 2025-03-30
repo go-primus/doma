@@ -1,16 +1,16 @@
 package tests
 
-import "github.com/primus/primus/doma"
+import "github.com/go-primus/doma/runtime/core"
 
 func init() {
 	// Only the event for creating an invite has custom data.
-	doma.RegisterEventData(CreateDemoEvent, func() doma.EventData {
+	core.RegisterEventData(CreateDemoEvent, func() core.EventData {
 		return &DemoCreateData{}
 	})
 }
 
 const (
-	CreateDemoEvent doma.EventType = "demo_created"
+	CreateDemoEvent core.EventType = "demo_created"
 )
 
 type DemoCreateData struct {

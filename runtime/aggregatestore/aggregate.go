@@ -3,7 +3,8 @@ package aggregatestore
 import (
 	"context"
 
-	"github.com/primus/primus/doma"
+	"github.com/go-primus/doma/runtime/core"
+	"github.com/go-primus/doma/runtime/eventstore"
 )
 
 // VersionedAggregate is an interface representing a versioned aggregate created
@@ -14,10 +15,10 @@ import (
 // or more commonly embed *AggregateBase to take care of the common methods.
 type VersionedAggregate interface {
 	// Provides all the basic aggregate data.
-	doma.Aggregate
+	core.Aggregate
 
 	// Provides events to persist and publish from the aggregate.
-	doma.EventSource
+	eventstore.EventSource
 
 	// AggregateVersion returns the version of the aggregate.
 	AggregateVersion() int
@@ -28,5 +29,5 @@ type VersionedAggregate interface {
 	// ApplyEvent applies an event on the aggregate by setting its values.
 	// If there are no errors the version should be incremented by calling
 	// IncrementVersion.
-	ApplyEvent(context.Context, doma.Event) error
+	ApplyEvent(context.Context, core.Event) error
 }
