@@ -29,7 +29,9 @@ type IEvent interface {
 	EventType() string
 	Event() any // payload
 }
-
+type EventDescription interface {
+	Description() string
+}
 type RawEvent interface {
 	GetEventType() EventType
 	Summary() string
@@ -43,6 +45,7 @@ type Event struct {
 	AggregateType string         `json:"aggregate_type,omitempty"` // StreamType
 	Time          time.Time      `json:"time,omitempty"`
 	Payload       any            `json:"payload,omitempty"`
+	Description   string         `json:"description,omitempty"`
 	Metadata      *EventMetadata `json:"metadata,omitempty"`
 }
 
@@ -61,13 +64,18 @@ type Event struct {
 // func NewEvent(aggregateID string, eventType EventType, event any) Event {
 func NewEvent(eventType EventType, event any) Event {
 
+	description := ""
+	if edesc, ok := event.(EventDescription); ok {
+		description = edesc.Description()
+	}
 	return Event{
 		EventId: uuid.NewString(),
 		// AggregateId: aggregateID,
 		// Version:     0,
-		Time:      time.Now(),
-		EventType: eventType,
-		Payload:   event,
+		Time:        time.Now(),
+		EventType:   eventType,
+		Payload:     event,
+		Description: description,
 	}
 }
 

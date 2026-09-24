@@ -26,4 +26,10 @@ type EventMetadata struct {
 	ViewType string `json:"view_type,omitempty"`
 	ViewId   string `json:"view_id,omitempty"`
 	ViewName string `json:"view_name,omitempty"`
+
+	Trash bool `json:"trash,omitempty"`
+
+	AppType string `json:"app_type,omitempty"`
+	AppId   string `json:"app_id,omitempty"`
+	AppName string `json:"app_name,omitempty"`
 }

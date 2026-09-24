@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/go-primus/doma/pkg/asynctask/internal/base"
 )
@@ -18,7 +19,7 @@ func (p *processor) handleSucceededMessage(msg *base.TaskMessage) {
 
 func (p *processor) markAsComplete(msg *base.TaskMessage) {
 
-	p.logger.Info("---complete----")
+	slog.Info("---complete----")
 	// ctx := context.Background()
 	// err := p.broker.MarkAsComplete(ctx, msg)
 
@@ -58,7 +59,7 @@ func (p *processor) markAsDone(msg *base.TaskMessage) {
 var SkipRetry = errors.New("skip retry for the task")
 
 func (p *processor) handleFailedMessage(ctx context.Context, msg *base.TaskMessage, err error) {
-	p.logger.Info("--handle failed message---err:", err)
+	slog.Info("--handle failed message---err:", err)
 	// if p.errHandler != nil {
 	// 	p.errHandler.HandleError(ctx, NewTask(msg.Type, msg.Payload), err)
 	// }

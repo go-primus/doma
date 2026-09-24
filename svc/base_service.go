@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/go-primus/doma/core/common/command"
 	"github.com/go-primus/doma/core/common/event"

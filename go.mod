@@ -4,10 +4,11 @@ go 1.25.0
 
 require (
 	github.com/bwmarrin/snowflake v0.3.0
+	github.com/go-resty/resty/v2 v2.17.2
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/jiyeyuran/go-eventemitter v1.4.2
+	github.com/jiyeyuran/go-eventemitter v1.5.0
 	github.com/nats-io/nats.go v1.39.0
 	github.com/orandin/slog-gorm v1.4.0
 	github.com/reugn/go-quartz v0.15.2
@@ -45,7 +46,7 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
-	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	google.golang.org/genproto v0.0.0-20230822172742-b8732ec3820d // indirect
@@ -63,7 +64,7 @@ require (
 	github.com/nats-io/nkeys v0.4.9 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	go.etcd.io/bbolt v1.4.0
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/time v0.8.0
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/time v0.12.0
 )
