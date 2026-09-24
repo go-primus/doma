@@ -157,12 +157,23 @@ func (s *BaseService) Dump(context.Context) ([]byte, error) {
 }
 
 // /////////////
+
+func (s *BaseService) Request(topic string, data event.Event) error {
+	if s.bus == nil {
+		slog.Warn("request err: bus is nil", "service", s.name)
+		return nil
+	}
+	slog.Debug("request topic ", "service", s.name, "topic", topic)
+	_, err := s.bus.Request(context.Background(), topic, data, eventbus.WithTimeout(30*time.Second))
+	return err
+}
+
 func (s *BaseService) Publish(topic string, data event.Event) error {
 	if s.bus == nil {
 		slog.Warn("publish err: bus is nil", "service", s.name)
 		return nil
 	}
-	slog.Info("publish topic ", "service", s.name, "topic", topic)
+	slog.Debug("publish topic ", "service", s.name, "topic", topic)
 	return s.bus.Publish(topic, data)
 }
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/go-primus/doma/core/common/event"
+	"github.com/go-primus/doma/pkg/authctx"
 )
 
 type Handler interface {

@@ -48,6 +48,7 @@ type Service interface {
 	SubscribeCommand(fn CommandHandler) error
 
 	// Event
+	Request(topic string, data event.Event) error
 	Publish(topic string, data event.Event) error
 	Subscribe(topic string, fn EventHandler) error
 
