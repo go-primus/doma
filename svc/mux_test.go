@@ -11,14 +11,15 @@ import (
 
 func makeFakeHandler() Handler {
 	return HandlerFunc(
-		func(ctx context.Context, e event.Event) {
+		func(ctx context.Context, e event.Event) error {
 			fmt.Println("----handle event----", e)
+			return nil
 		},
 	)
 }
 
 func wrapHandle[T any](fn func(eventType string, payload T)) HandlerFunc {
-	return HandlerFunc(func(ctx context.Context, e event.Event) {
+	return HandlerFunc(func(ctx context.Context, e event.Event) error {
 
 		bb, _ := json.Marshal(e.Payload)
 
@@ -26,17 +27,17 @@ func wrapHandle[T any](fn func(eventType string, payload T)) HandlerFunc {
 		err := json.Unmarshal(bb, payload)
 		if err != nil {
 			fmt.Println("unmarshal err:", err)
-			return
+			return err
 		}
 
 		fn(string(e.EventType), *payload)
-
+		return nil
 	})
 }
 
 func TestMux(t *testing.T) {
 
-	mux := NewEventMux()
+	mux := NewEventMux("test")
 	mux.Handle("xxxx", makeFakeHandler())
 	mux.HandleFunc("yyyy", wrapHandle(func(typ string, payload struct {
 		Name string

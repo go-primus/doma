@@ -2,8 +2,20 @@ package svc
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 )
+
+func TestXX(t *testing.T) {
+	bb, _ := json.Marshal(12)
+	fmt.Println("ssss: ", "xxx", string(bb))
+
+	var str string
+	json.Unmarshal([]byte(`"xxx"`), &str)
+
+	fmt.Println("str:", str)
+}
 
 // var sm *ServiceRegistry
 

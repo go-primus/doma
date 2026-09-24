@@ -1,11 +1,13 @@
 package event
 
 type EventMetadata struct {
-	Uid       string `json:"uid,omitempty"` // Identity
-	UserPodId string `json:"user_pod_id,omitempty"`
-	Username  string `json:"username,omitempty"`
-	RoleType  int    `json:"role_type,omitempty"`
-	NetworkId string `json:"network_id,omitempty"`
+	Uid          string `json:"uid,omitempty"` // Identity
+	IdentityType string `json:"identity_type,omitempty"`
+	IdentityID   string `json:"identity_id,omitempty"`
+	UserPodId    string `json:"user_pod_id,omitempty"`
+	Username     string `json:"username,omitempty"`
+	RoleType     int    `json:"role_type,omitempty"`
+	NetworkId    string `json:"network_id,omitempty"`
 
 	//
 	PodId string `json:"pod_id,omitempty"`

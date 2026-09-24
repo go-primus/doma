@@ -9,5 +9,6 @@ func (ct CommandType) String() string {
 type Command struct {
 	CommandId   string `json:"command_id,omitempty"`
 	CommandType string `json:"command_type,omitempty"`
+	Stream      string `json:"stream,omitempty"`
 	Payload     any    `json:"payload,omitempty"`
 }

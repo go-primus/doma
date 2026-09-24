@@ -1,9 +1,11 @@
 package event
 
 import (
+	"context"
 	"reflect"
 	"time"
 
+	"github.com/go-primus/doma/pkg/authctx"
 	"github.com/google/uuid"
 )
 
@@ -67,6 +69,19 @@ func NewEvent(eventType EventType, event any) Event {
 		EventType: eventType,
 		Payload:   event,
 	}
+}
+
+// NewEventWithIdentity creates an Event with identity from context written into metadata.
+func NewEventWithIdentity(ctx context.Context, eventType EventType, payload any) Event {
+	evt := NewEvent(eventType, payload)
+	if identity, err := authctx.GetIdentity(ctx); err == nil && identity != nil {
+		if evt.Metadata == nil {
+			evt.Metadata = &EventMetadata{}
+		}
+		evt.Metadata.IdentityType = string(identity.Type)
+		evt.Metadata.IdentityID = identity.ID
+	}
+	return evt
 }
 
 func typeOf(i interface{}) string {

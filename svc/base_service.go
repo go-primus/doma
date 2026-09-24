@@ -15,11 +15,12 @@ import (
 )
 
 type BaseService struct {
-	id      string
-	name    string
-	version string
-	state   int32
-	bus     eventbus.EventBus
+	id        string
+	name      string
+	version   string
+	state     int32
+	bus       eventbus.EventBus
+	lifecycle ServiceLifecycle
 
 	handle ServiceHandle
 
@@ -27,12 +28,19 @@ type BaseService struct {
 	tasks sync.Map
 }
 
-func NewBaseService(name string) Service {
+func NewBaseService(name string) *BaseService {
 	return newBaseService(name, nil)
 }
 
-func NewBaseServiceWithBus(name string, bus eventbus.EventBus) Service {
+func NewBaseServiceWithBus(name string, bus eventbus.EventBus) *BaseService {
 	return newBaseService(name, bus)
+}
+
+// BindLifecycle 绑定业务服务生命周期回调：依据业务服务实现的可选接口
+// （LifecycleInitHook/LifecycleConfigHook/LifecycleStartHook/LifecycleStopHook）
+// 构造 ServiceLifecycle 默认实现并绑定，未实现的阶段为无操作。
+func (s *BaseService) BindLifecycle(provider Service) {
+	s.lifecycle = newServiceLifecycle(provider)
 }
 
 func newBaseService(name string, bus eventbus.EventBus) *BaseService {
@@ -71,9 +79,14 @@ func (s *BaseService) updateState(state ServiceState) {
 
 //////////////
 
-func (s *BaseService) Init(context.Context) error {
+func (s *BaseService) Init(ctx context.Context) error {
 	if s.getState() != ServiceState_Idle {
 		return fmt.Errorf("service has inited")
+	}
+	if s.lifecycle != nil {
+		if err := s.lifecycle.OnInit(ctx); err != nil {
+			return err
+		}
 	}
 	s.updateState(ServiceState_Init)
 	return nil
@@ -85,6 +98,11 @@ func (s *BaseService) Config(ctx context.Context, fn func() error) error {
 			return fmt.Errorf("should init service before config")
 		}
 		return fmt.Errorf("service has configed")
+	}
+	if s.lifecycle != nil {
+		if err := s.lifecycle.OnConfig(ctx); err != nil {
+			return err
+		}
 	}
 
 	// s.state = ServiceState_Config
@@ -98,20 +116,31 @@ func (s *BaseService) Config(ctx context.Context, fn func() error) error {
 	return nil
 }
 
-func (s *BaseService) Start(context.Context) error {
+func (s *BaseService) Start(ctx context.Context) error {
 	if s.getState() != ServiceState_Ready {
 		return fmt.Errorf("service not ready")
 	}
 	slog.Info("service start :", "service", s.name)
+	if s.lifecycle != nil {
+		if err := s.lifecycle.OnStart(ctx); err != nil {
+			return err
+		}
+	}
 	// s.state = ServiceState_Running
 	s.updateState(ServiceState_Running)
 
 	return nil
 }
 
-func (s *BaseService) Stop(context.Context) error {
+// Stop implements [Service].
+func (s *BaseService) Stop(ctx context.Context) error {
 	if s.getState() != ServiceState_Running {
 		return fmt.Errorf("service not running")
+	}
+	if s.lifecycle != nil {
+		if err := s.lifecycle.OnStop(ctx); err != nil {
+			slog.Warn("stop lifecycle failed", "service", s.name, "err", err)
+		}
 	}
 	// s.state = ServiceState_Destroy
 	s.updateState(ServiceState_Destroy)

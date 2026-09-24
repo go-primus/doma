@@ -202,3 +202,38 @@ func WrapHandle[T any](fn func(ctx context.Context, eventType string, payload T)
 
 	})
 }
+
+func WrapSimple[T any](fn func(ctx context.Context, payload T) error) HandlerFunc {
+	return HandlerFunc(func(ctx context.Context, e event.Event) error {
+
+		bb, _ := json.Marshal(e.Payload)
+
+		payload := new(T)
+		err := json.Unmarshal(bb, payload)
+		if err != nil {
+			fmt.Println("unmarshal err:", err)
+			return err
+		}
+		return fn(ctx, *payload)
+	})
+}
+
+// WrapInjectIdentity wraps a handler by extracting identity from event metadata
+// and injecting it into the context via authctx.WithIdentity before calling fn.
+func WrapInjectIdentity[T any](fn func(ctx context.Context, payload T) error) HandlerFunc {
+	return HandlerFunc(func(ctx context.Context, e event.Event) error {
+		if e.Metadata != nil && (e.Metadata.IdentityType != "" || e.Metadata.IdentityID != "") {
+			ctx = authctx.WithIdentity(ctx, &authctx.Identity{
+				Type: authctx.IdentityType(e.Metadata.IdentityType),
+				ID:   e.Metadata.IdentityID,
+			})
+		}
+
+		bb, _ := json.Marshal(e.Payload)
+		payload := new(T)
+		if err := json.Unmarshal(bb, payload); err != nil {
+			return err
+		}
+		return fn(ctx, *payload)
+	})
+}

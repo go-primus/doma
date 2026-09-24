@@ -36,14 +36,22 @@ type ServiceManager interface {
 	Init(ctx context.Context) error
 	Config(ctx context.Context) error
 	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
 
 	GetSystemService(name string) Service
 	GetServiceState(name string) (ServiceState, error)
+	IsSystemReady() bool
 	DumpServices()
 }
 
 type ServiceRegistry struct {
 	services map[string]Service
+	isready  bool
+}
+
+// IsSystemReady implements [ServiceManager].
+func (s *ServiceRegistry) IsSystemReady() bool {
+	return s.isready
 }
 
 func newServiceRegistry() ServiceManager {
@@ -86,6 +94,29 @@ func (s *ServiceRegistry) Start(ctx context.Context) error {
 			return err
 		}
 	}
+	s.isready = true
+
+	for _, svc := range s.services {
+		if h, ok := svc.(LifecycleSystemReadyHook); ok {
+			if err := h.OnSystemReady(ctx); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Stop implements [ServiceManager].
+func (s *ServiceRegistry) Stop(ctx context.Context) error {
+	slog.Info("stop services...")
+	for _, svc := range s.services {
+		err := svc.Stop(ctx)
+		if err != nil {
+			slog.Warn("stop service fail", "service", svc.Name(), "err", err)
+		}
+	}
+	s.isready = false
 	return nil
 }
 

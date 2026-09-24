@@ -1,93 +1,70 @@
 package kvstore
 
 import (
-	"context"
-	"fmt"
-
-	"go.etcd.io/bbolt"
+	"encoding/json"
+	"errors"
 )
 
+var (
+	ErrKeyNotFound    = errors.New("key not found")
+	ErrBucketNotFound = errors.New("bucket not found")
+)
+
+type KeyValue struct {
+	Key   string
+	Value []byte
+}
+
+func (kv *KeyValue) GetString() string {
+
+	var str string
+	json.Unmarshal(kv.Value, &str)
+	return str
+}
+
+func (kv *KeyValue) GetValue(model any) error {
+	return json.Unmarshal(kv.Value, model)
+}
+
 type KvStore interface {
-	Create(ctx context.Context, key string, value []byte) (int64, error)
-	Delete(ctx context.Context, key string) error
-	Update(ctx context.Context, key string, value []byte) error
-	Get(ctx context.Context, key string) (any, error)
-	List(ctx context.Context, prefix, startkey string, limit int64) ([]any, error)
-	Count(ctx context.Context, prefix, startkey string) (int64, error)
-
-	//
-	Watch()
+	Put(bucket, key string, value []byte) error
+	Delete(bucket, key string) error
+	DeleteByPrefix(bucket, prefix string) error
+	Get(bucket, key string) (KeyValue, error)
+	Count(bucket string, prefix string) (int64, error)
+	List(bucket string, opts ...ListOption) ([]KeyValue, error)
+	Close() error
 }
 
-type Tx interface {
-	base.Tx
-	Get(ctx context.Context, key kv.Key) (kv.Value, error)
-	GetBatch(ctx context.Context, keys []kv.Key) ([]kv.Value, error)
-	Del(ctx context.Context, k kv.Key) error
-	Put(ctx context.Context, k kv.Key, v kv.Value) error
-	Scan(ctx context.Context) kv.Iterator
-	PrefixScan(ctx context.Context, prefix kv.Key) kv.Iterator
+type ListOption func(*ListOptions)
+
+type ListOptions struct {
+	Prefix  string
+	Limit   int
+	Offset  int
+	Reverse bool
 }
 
-
-type Watcher interface {
-	Watch(ctx context.Context, key string) WatchResult
+func WithPrefix(prefix string) ListOption {
+	return func(o *ListOptions) {
+		o.Prefix = prefix
+	}
 }
 
-type Event struct {
+func WithLimit(limit int) ListOption {
+	return func(o *ListOptions) {
+		o.Limit = limit
+	}
 }
 
-type WatchResult struct {
-	Events <-chan []*Event
+func WithOffset(offset int) ListOption {
+	return func(o *ListOptions) {
+		o.Offset = offset
+	}
 }
 
-type kvStore struct {
-	db *bbolt.DB
-}
-
-// Delete implements ConfigStore.
-func (s *kvStore) Delete(bucket []byte, key []byte) error {
-	return s.db.Update(func(tx *bbolt.Tx) error {
-
-		bucket, err := tx.CreateBucketIfNotExists(bucket)
-		if err != nil {
-			return err
-		}
-
-		return bucket.Delete(key)
-
-	})
-}
-
-// Get implements ConfigStore.
-func (s *kvStore) Get(bucket []byte, key []byte) ([]byte, error) {
-	value := []byte{}
-	err := s.db.View(func(tx *bbolt.Tx) error {
-
-		bucket := tx.Bucket(bucket)
-		if bucket == nil {
-			return fmt.Errorf("bucket is null")
-		}
-		value = bucket.Get(key)
-		return nil
-	})
-	return value, err
-}
-
-// Put implements ConfigStore.
-func (s *kvStore) Put(bucket []byte, key, value []byte) error {
-	return s.db.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(bucket)
-		if err != nil {
-			return err
-		}
-
-		return bucket.Put(key, value)
-	})
-}
-
-func NewKvStore(db *bbolt.DB) KvStore {
-	return &kvStore{
-		db: db,
+func WithReverse() ListOption {
+	return func(o *ListOptions) {
+		o.Reverse = true
 	}
 }
