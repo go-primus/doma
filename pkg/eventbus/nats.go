@@ -50,8 +50,26 @@ func (nb *NatsBus) Request(ctx context.Context, topic string, req any, opts ...R
 		opt(cfg)
 	}
 
+	if ctx == nil {
+		return nil, nats.ErrInvalidContext
+	}
+
+	timeout := cfg.timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+
+	// An explicit deadline on ctx takes priority; otherwise apply the
+	// request timeout (from WithTimeout or the default).
+	reqCtx := ctx
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		reqCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
 	b, _ := json.Marshal(req)
-	res, err := nb.nc.RequestWithContext(ctx, topic, b)
+	res, err := nb.nc.RequestWithContext(reqCtx, topic, b)
 	if err != nil {
 		return nil, err
 	}
