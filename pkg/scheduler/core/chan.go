@@ -62,12 +62,14 @@ func (s *busChan[T]) Send(msg T) {
 
 func (s *busChan[T]) Recv() <-chan T {
 
-	s.bus.Subscribe(s.topic, func(msg *eventbus.Msg) {
+	s.bus.Subscribe(s.topic, func(msg *eventbus.Msg) (any, error) {
 
 		var item T
 		json.Unmarshal(msg.Data, &item)
 
 		s.dispatch <- item
+
+		return nil, nil
 	})
 
 	return s.dispatch

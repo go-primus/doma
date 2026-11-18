@@ -188,24 +188,25 @@ func (s *BaseService) Subscribe(topic string, fn EventHandler) error {
 }
 
 func (s *BaseService) handleMsg(fn EventHandler) eventbus.EventHandler {
-	return func(msg *eventbus.Msg) {
+	return func(msg *eventbus.Msg) (any, error) {
 
 		if msg == nil {
-			return
+			return nil, nil
 		}
 
 		event := event.Event{}
 		err := json.Unmarshal(msg.Data, &event)
 		if err != nil {
 			slog.Error("invalid event,", "err", err, "data", string(msg.Data))
-			return
+			return nil, err
 		}
 
 		err = fn(context.Background(), msg.Subject, event)
 		if err != nil {
 			slog.Error("handle message ", "service", s.name, "subject", msg.Subject, "err", err)
-			return
+			return nil, err
 		}
+		return nil, nil
 	}
 }
 
@@ -224,23 +225,21 @@ func (s *BaseService) SubscribeCommand(fn CommandHandler) error {
 }
 
 func (s *BaseService) handleCommand(fn CommandHandler) eventbus.EventHandler {
-	return func(msg *eventbus.Msg) {
+	return func(msg *eventbus.Msg) (any, error) {
 		cmd := command.Command{}
 		err := json.Unmarshal(msg.Data, &cmd)
 		if err != nil {
 			slog.Error("handle command, unmarshal err:", "service", s.name, "err", err)
-			return
+			return nil, err
 		}
 
 		slog.Info("receive command bus msg: ", "service", s.name, "cmd", cmd.CommandType)
 		res, err := fn(cmd)
 		if err != nil {
 			slog.Error("handle command ", "service", s.name, "cmd", cmd.CommandType, " err", err)
-			s.bus.Publish(msg.Reply, err.Error())
-			return
+			return nil, err
 		}
-		bb, _ := json.Marshal(res)
-		s.bus.Publish(msg.Reply, string(bb))
+		return res, nil
 	}
 }
 

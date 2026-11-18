@@ -87,7 +87,7 @@ func (s *worker) Start() {
 }
 
 func (s *worker) start() {
-	s.bus.Subscribe("tasks.queues", func(msg *eventbus.Msg) {
+	s.bus.Subscribe("tasks.queues", func(msg *eventbus.Msg) (any, error) {
 		var taskMsg model.TaskMessage
 		json.Unmarshal(msg.Data, &taskMsg)
 
@@ -103,9 +103,10 @@ func (s *worker) start() {
 		s.store.AddTask(taskMsg)
 		s.dispatch <- taskMsg
 		fmt.Println("handle task queues msgxxx")
+		return nil, nil
 	})
 
-	s.bus.Subscribe("tasks.commands", func(msg *eventbus.Msg) {
+	s.bus.Subscribe("tasks.commands", func(msg *eventbus.Msg) (any, error) {
 		var taskCommand model.TaskCommand
 		json.Unmarshal(msg.Data, &taskCommand)
 
@@ -122,6 +123,7 @@ func (s *worker) start() {
 
 		}
 
+		return nil, nil
 	})
 }
 

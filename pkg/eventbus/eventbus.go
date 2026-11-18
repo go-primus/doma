@@ -2,6 +2,8 @@ package eventbus
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -40,8 +42,44 @@ func WithTimeout(timeout time.Duration) RequestOption {
 	return func(c *requestConfig) { c.timeout = timeout }
 }
 
-// EventHandler processes received messages
-type EventHandler func(msg *Msg)
+// errorHeader is used to carry handler errors back to Request callers.
+const errorHeader = "Doma-Error"
+
+// ErrNoReply can be returned by an EventHandler to indicate that the response
+// will be sent asynchronously by the handler itself. The bus then skips the
+// automatic reply.
+var ErrNoReply = errors.New("eventbus: no reply")
+
+// EventHandler processes received messages.
+//
+// When the message has a reply subject (i.e. it was sent by Request), the
+// returned value is encoded and sent back as the response. A non-nil error is
+// sent back as an error response and surfaces as the Request error.
+type EventHandler func(msg *Msg) (any, error)
 
 // Msg wraps NATS message
 type Msg = nats.Msg
+
+// encodeResponse converts a handler result into the response payload.
+func encodeResponse(res any) ([]byte, error) {
+	if res == nil {
+		return nil, nil
+	}
+	if b, ok := res.([]byte); ok {
+		return b, nil
+	}
+	return json.Marshal(res)
+}
+
+// decodeResponse converts a response payload into a Go value. Non-JSON payloads
+// are returned as raw bytes.
+func decodeResponse(data []byte) any {
+	if len(data) == 0 {
+		return nil
+	}
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return data
+	}
+	return v
+}

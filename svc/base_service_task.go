@@ -38,17 +38,17 @@ func (s *BaseService) SubscribeTask(fn TaskHandler) error {
 }
 
 func (s *BaseService) handleTask(fn TaskHandler) eventbus.EventHandler {
-	return func(msg *eventbus.Msg) {
+	return func(msg *eventbus.Msg) (any, error) {
 		taskx := task.Task{}
 		err := json.Unmarshal(msg.Data, &taskx)
 		if err != nil {
 			slog.Error("handle task, unmarshal err:", "service", s.name, "err", err)
-			return
+			return nil, err
 		}
 
 		if _, exists := s.tasks.LoadOrStore(taskx.TaskId, taskx); exists {
 			slog.Warn("service task is running alreay  ", "service", s.name, "task", taskx.TaskId, "task-type", taskx.TaskType)
-			return
+			return nil, eventbus.ErrNoReply
 		}
 
 		go func() {
@@ -62,13 +62,25 @@ func (s *BaseService) handleTask(fn TaskHandler) eventbus.EventHandler {
 			res, err := s.performTask(taskCtx, taskx, fn)
 			if err != nil {
 				slog.Error("handle task", "service", s.name, "task-type", taskx.TaskType, "err", err)
-				s.bus.Publish(msg.Reply, err.Error())
+				s.reply(msg.Reply, err.Error())
 				return
 			}
 			bb, _ := json.Marshal(res)
-			s.bus.Publish(msg.Reply, string(bb))
+			s.reply(msg.Reply, string(bb))
 		}()
 
+		return nil, eventbus.ErrNoReply
+	}
+}
+
+// reply publishes an asynchronous response. An empty reply subject means the
+// message was published rather than requested, so there is nothing to reply to.
+func (s *BaseService) reply(subject string, data any) {
+	if subject == "" {
+		return
+	}
+	if err := s.bus.Publish(subject, data); err != nil {
+		slog.Error("reply message", "service", s.name, "subject", subject, "err", err)
 	}
 }
 

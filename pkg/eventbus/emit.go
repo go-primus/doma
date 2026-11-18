@@ -3,6 +3,7 @@ package eventbus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,7 +45,7 @@ func (b *emitBus) Request(ctx context.Context, topic string, req any, opts ...Re
 	msg.Data = bb
 
 	done := make(chan struct{})
-	var result any
+	var emitted bool
 
 	// Set up timeout
 	timeout := cfg.timeout
@@ -53,12 +54,7 @@ func (b *emitBus) Request(ctx context.Context, topic string, req any, opts ...Re
 	}
 
 	go func() {
-		ok := b.em.Emit(topic, msg)
-		if !ok {
-			result = nil
-		} else {
-			result = msg.Data
-		}
+		emitted = b.em.Emit(topic, msg)
 		close(done)
 	}()
 
@@ -68,7 +64,13 @@ func (b *emitBus) Request(ctx context.Context, topic string, req any, opts ...Re
 	case <-time.After(timeout):
 		return nil, fmt.Errorf("request timeout")
 	case <-done:
-		return result, nil
+		if !emitted {
+			return nil, nil
+		}
+		if errMsg := msg.Header.Get(errorHeader); errMsg != "" {
+			return nil, errors.New(errMsg)
+		}
+		return decodeResponse(msg.Data), nil
 	}
 }
 
@@ -84,7 +86,27 @@ func (b *emitBus) Publish(topic string, data any) error {
 
 func (b *emitBus) Subscribe(topic string, fn EventHandler) (Subscription, error) {
 	token := b.em.On(topic, func(msg *nats.Msg) {
-		fn((*Msg)(msg))
+		res, err := fn((*Msg)(msg))
+		if msg.Reply == "" {
+			return
+		}
+		if errors.Is(err, ErrNoReply) {
+			return
+		}
+
+		if err != nil {
+			msg.Header.Set(errorHeader, err.Error())
+			msg.Data = []byte(err.Error())
+			return
+		}
+
+		data, mErr := encodeResponse(res)
+		if mErr != nil {
+			msg.Header.Set(errorHeader, mErr.Error())
+			msg.Data = []byte(mErr.Error())
+			return
+		}
+		msg.Data = data
 	})
 	sub := &emitSubscription{topic: topic, token: token, bus: b}
 	b.subs[topic] = token

@@ -17,8 +17,9 @@ func TestEmitBus_Subscribe(t *testing.T) {
 	}
 
 	t.Run("subscribe returns subscription", func(t *testing.T) {
-		sub, err := bus.Subscribe("test.topic", func(msg *Msg) {
+		sub, err := bus.Subscribe("test.topic", func(msg *Msg) (any, error) {
 			slog.Info("receive", "msg", string(msg.Data))
+			return nil, nil
 		})
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -30,8 +31,9 @@ func TestEmitBus_Subscribe(t *testing.T) {
 
 	t.Run("multiple subscriptions to same topic", func(t *testing.T) {
 		for i := 0; i < 5; i++ {
-			_, err := bus.Subscribe("multi.topic", func(msg *Msg) {
+			_, err := bus.Subscribe("multi.topic", func(msg *Msg) (any, error) {
 				slog.Info("receive", "msg", string(msg.Data))
+				return nil, nil
 			})
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -65,8 +67,8 @@ func TestEmitBus_Request(t *testing.T) {
 	}
 
 	t.Run("request with handler", func(t *testing.T) {
-		sub, err := bus.Subscribe("request.topic", func(msg *Msg) {
-			msg.Data = []byte("response data")
+		sub, err := bus.Subscribe("request.topic", func(msg *Msg) (any, error) {
+			return "response data", nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -78,8 +80,23 @@ func TestEmitBus_Request(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if data == nil {
-			t.Error("expected non-nil data")
+		if data != "response data" {
+			t.Errorf("expected %q, got %#v", "response data", data)
+		}
+	})
+
+	t.Run("request returns handler error", func(t *testing.T) {
+		sub, err := bus.Subscribe("error.topic", func(msg *Msg) (any, error) {
+			return nil, fmt.Errorf("handler failed")
+		})
+		if err != nil {
+			t.Fatalf("failed to subscribe: %v", err)
+		}
+		defer sub.Unsubscribe()
+
+		_, err = bus.Request(context.Background(), "error.topic", "request data")
+		if err == nil || err.Error() != "handler failed" {
+			t.Fatalf("expected handler error, got %v", err)
 		}
 	})
 }
@@ -107,10 +124,11 @@ func TestEmitBus_MessageDelivery(t *testing.T) {
 		var receivedMu sync.Mutex
 		var receivedData []byte
 
-		sub, err := bus.Subscribe("delivery.test", func(msg *Msg) {
+		sub, err := bus.Subscribe("delivery.test", func(msg *Msg) (any, error) {
 			receivedMu.Lock()
 			receivedData = msg.Data
 			receivedMu.Unlock()
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -142,10 +160,11 @@ func TestEmitBus_MessageDelivery(t *testing.T) {
 		expectedCount := 3
 
 		for i := 0; i < expectedCount; i++ {
-			_, err := bus.Subscribe("multi.delivery", func(msg *Msg) {
+			_, err := bus.Subscribe("multi.delivery", func(msg *Msg) (any, error) {
 				mu.Lock()
 				receivedCount++
 				mu.Unlock()
+				return nil, nil
 			})
 			if err != nil {
 				t.Fatalf("failed to subscribe: %v", err)
@@ -169,8 +188,9 @@ func TestEmitBus_MessageDelivery(t *testing.T) {
 	t.Run("subscriber receives correct topic", func(t *testing.T) {
 		var receivedTopic string
 
-		sub, err := bus.Subscribe("topic.test", func(msg *Msg) {
+		sub, err := bus.Subscribe("topic.test", func(msg *Msg) (any, error) {
 			receivedTopic = msg.Subject
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -196,8 +216,9 @@ func TestEmitBus_MessageDelivery(t *testing.T) {
 		}
 		var receivedData []byte
 
-		sub, err := bus.Subscribe("struct.test", func(msg *Msg) {
+		sub, err := bus.Subscribe("struct.test", func(msg *Msg) (any, error) {
 			receivedData = msg.Data
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -226,8 +247,8 @@ func TestEmitBus_RequestResponse(t *testing.T) {
 	}
 
 	t.Run("handler receives request and responds", func(t *testing.T) {
-		sub, err := bus.Subscribe("echo.service", func(msg *Msg) {
-			msg.Data = []byte("echo response")
+		sub, err := bus.Subscribe("echo.service", func(msg *Msg) (any, error) {
+			return "echo response", nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -240,15 +261,15 @@ func TestEmitBus_RequestResponse(t *testing.T) {
 			t.Fatalf("request failed: %v", err)
 		}
 
-		if data == nil {
-			t.Fatal("expected response data, got nil")
+		if data != "echo response" {
+			t.Fatalf("expected %q, got %#v", "echo response", data)
 		}
 	})
 
 	t.Run("request with timeout returns error", func(t *testing.T) {
-		sub, err := bus.Subscribe("slow.service", func(msg *Msg) {
+		sub, err := bus.Subscribe("slow.service", func(msg *Msg) (any, error) {
 			time.Sleep(2 * time.Second)
-			msg.Data = []byte("slow response")
+			return "slow response", nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -266,9 +287,9 @@ func TestEmitBus_RequestResponse(t *testing.T) {
 
 	t.Run("multiple requests handled correctly", func(t *testing.T) {
 		requestCount := 0
-		sub, err := bus.Subscribe("counter.service", func(msg *Msg) {
+		sub, err := bus.Subscribe("counter.service", func(msg *Msg) (any, error) {
 			requestCount++
-			msg.Data = []byte(fmt.Sprintf("response %d", requestCount))
+			return fmt.Sprintf("response %d", requestCount), nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -296,7 +317,7 @@ func TestEmitBus_UnsubscribeDelivery(t *testing.T) {
 	}
 
 	t.Run("subscription validity check", func(t *testing.T) {
-		sub, err := bus.Subscribe("validity.test", func(msg *Msg) {})
+		sub, err := bus.Subscribe("validity.test", func(msg *Msg) (any, error) { return nil, nil })
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
 		}
@@ -318,8 +339,9 @@ func TestEmitBus_UnsubscribeDelivery(t *testing.T) {
 	t.Run("subscription count tracking", func(t *testing.T) {
 		var receivedCount int
 
-		sub, err := bus.Subscribe("counting.test", func(msg *Msg) {
+		sub, err := bus.Subscribe("counting.test", func(msg *Msg) (any, error) {
 			receivedCount++
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -352,8 +374,9 @@ func TestEmitBus_TopicDelivery(t *testing.T) {
 	t.Run("exact topic delivery", func(t *testing.T) {
 		var receivedTopics []string
 
-		sub1, err := bus.Subscribe("exact.topic", func(msg *Msg) {
+		sub1, err := bus.Subscribe("exact.topic", func(msg *Msg) (any, error) {
 			receivedTopics = append(receivedTopics, msg.Subject)
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -395,16 +418,18 @@ func TestEmitBus_TopicDelivery(t *testing.T) {
 	t.Run("multiple topic subscriptions", func(t *testing.T) {
 		var receivedOnA, receivedOnB bool
 
-		sub, err := bus.Subscribe("topic.a", func(msg *Msg) {
+		sub, err := bus.Subscribe("topic.a", func(msg *Msg) (any, error) {
 			receivedOnA = true
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
 		}
 		defer sub.Unsubscribe()
 
-		sub2, err := bus.Subscribe("topic.b", func(msg *Msg) {
+		sub2, err := bus.Subscribe("topic.b", func(msg *Msg) (any, error) {
 			receivedOnB = true
+			return nil, nil
 		})
 		if err != nil {
 			t.Fatalf("failed to subscribe: %v", err)
@@ -453,7 +478,7 @@ func BenchmarkNullBus_Subscribe(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sub, _ := bus.Subscribe(fmt.Sprintf("bench.topic.%d", i), func(msg *Msg) {})
+		sub, _ := bus.Subscribe(fmt.Sprintf("bench.topic.%d", i), func(msg *Msg) (any, error) { return nil, nil })
 		_ = sub.Unsubscribe()
 	}
 }
@@ -475,7 +500,7 @@ func BenchmarkEmitBus_Subscribe(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sub, _ := bus.Subscribe(fmt.Sprintf("bench.topic.%d", i), func(msg *Msg) {})
+		sub, _ := bus.Subscribe(fmt.Sprintf("bench.topic.%d", i), func(msg *Msg) (any, error) { return nil, nil })
 		_ = sub.Unsubscribe()
 	}
 }

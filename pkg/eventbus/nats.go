@@ -3,6 +3,7 @@ package eventbus
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -74,7 +75,11 @@ func (nb *NatsBus) Request(ctx context.Context, topic string, req any, opts ...R
 		return nil, err
 	}
 
-	return res.Data, nil
+	if errMsg := res.Header.Get(errorHeader); errMsg != "" {
+		return nil, errors.New(errMsg)
+	}
+
+	return decodeResponse(res.Data), nil
 }
 
 func (nb *NatsBus) Publish(topic string, data any) error {
@@ -84,13 +89,39 @@ func (nb *NatsBus) Publish(topic string, data any) error {
 
 func (nb *NatsBus) Subscribe(topic string, fn EventHandler) (Subscription, error) {
 	sub, err := nb.nc.Subscribe(topic, func(msg *nats.Msg) {
-		_msg := Msg(*msg)
-		fn(&_msg)
+		res, err := fn(msg)
+		if msg.Reply == "" {
+			return
+		}
+		if errors.Is(err, ErrNoReply) {
+			return
+		}
+
+		if err != nil {
+			_ = respondError(msg, err)
+			return
+		}
+
+		data, mErr := encodeResponse(res)
+		if mErr != nil {
+			_ = respondError(msg, mErr)
+			return
+		}
+		_ = msg.Respond(data)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &natsSubscription{sub: sub}, nil
+}
+
+// respondError publishes an error response. The error is carried in a header
+// so Request can distinguish it from a normal payload.
+func respondError(msg *nats.Msg, err error) error {
+	resp := nats.NewMsg(msg.Reply)
+	resp.Header.Set(errorHeader, err.Error())
+	resp.Data = []byte(err.Error())
+	return msg.RespondMsg(resp)
 }
 
 func (nb *NatsBus) Unsubscribe(topic string, fn EventHandler) error {
